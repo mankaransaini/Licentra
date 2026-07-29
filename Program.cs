@@ -14,6 +14,9 @@ using Licentra.API.Services.Roles;
 using Licentra.API.Interfaces.Users;
 using Licentra.API.Repositories.Users;
 using Licentra.API.Services.Users;
+using Licentra.API.Interfaces.Vendors;
+using Licentra.API.Repositories.Vendors;
+using Licentra.API.Services.Vendors;
 
 namespace Licentra.API
 {
@@ -40,6 +43,8 @@ namespace Licentra.API
             builder.Services.AddScoped<IRoleService, RoleService>();
             builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IUserService, UserService>();
+            builder.Services.AddScoped<IVendorRepository, VendorRepository>();
+            builder.Services.AddScoped<IVendorService, VendorService>();
 
             var app = builder.Build();
 

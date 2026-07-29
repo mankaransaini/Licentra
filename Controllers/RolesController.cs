@@ -76,7 +76,7 @@ namespace Licentra.API.Controllers
                 "Role updated successfully.",
                 null
             ));
-        }
+        }   
 
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> DeleteRole(int id)

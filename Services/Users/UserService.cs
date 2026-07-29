@@ -2,17 +2,24 @@
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.Users;
 using Licentra.API.Models;
+using Licentra.API.Interfaces.Security;
 
 namespace Licentra.API.Services.Users
 {
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
+        private readonly IPasswordHasher _passwordHasher;
 
-        public UserService(IUserRepository userRepository)
+        public UserService(
+    IUserRepository userRepository,
+    IPasswordHasher passwordHasher)
         {
             _userRepository = userRepository ??
                 throw new ArgumentNullException(nameof(userRepository));
+
+            _passwordHasher = passwordHasher ??
+                throw new ArgumentNullException(nameof(passwordHasher));
         }
 
         public async Task<IEnumerable<UserDto>> GetAllAsync()
@@ -78,7 +85,7 @@ namespace Licentra.API.Services.Users
                 EmployeeId = dto.EmployeeId,
                 RoleId = dto.RoleId,
                 Username = dto.Username.Trim(),
-                PasswordHash = dto.Password, // We'll hash this later with JWT/Auth
+                PasswordHash = _passwordHasher.HashPassword(dto.Password),
                 Email = dto.Email.Trim(),
                 CreatedAt = DateTime.UtcNow,
                 IsActive = true

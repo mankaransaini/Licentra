@@ -30,6 +30,13 @@ using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Repositories.AuditLogs;
 using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Services.AuditLogs;
+using Licentra.API.Interfaces.Security;
+using Licentra.API.Services.Security;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using Licentra.API.Interfaces.Security;
+using Licentra.API.Services.Security;
 
 namespace Licentra.API
 {
@@ -37,7 +44,30 @@ namespace Licentra.API
     {
         public static void Main(string[] args)
         {
+            
+
+
             var builder = WebApplication.CreateBuilder(args);
+
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
+
+            builder.Services.AddAuthorization();
 
             // Add services to the container.
 
@@ -66,6 +96,8 @@ namespace Licentra.API
             builder.Services.AddScoped<ILicenseAssignmentService, LicenseAssignmentService>();
             builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
+            builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
+            builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 
             var app = builder.Build();
 
@@ -77,10 +109,12 @@ namespace Licentra.API
             }
 
             app.UseHttpsRedirection();
+
             app.UseMiddleware<ExceptionMiddleware>();
 
-            app.UseAuthorization();
+            app.UseAuthentication();
 
+            app.UseAuthorization();
 
             app.MapControllers();
 

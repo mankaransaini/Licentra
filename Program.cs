@@ -17,6 +17,19 @@ using Licentra.API.Services.Users;
 using Licentra.API.Interfaces.Vendors;
 using Licentra.API.Repositories.Vendors;
 using Licentra.API.Services.Vendors;
+using Licentra.API.Interfaces.Software;
+using Licentra.API.Repositories.Software;
+using Licentra.API.Services.Software;
+using Licentra.API.Interfaces.Licenses;
+using Licentra.API.Repositories.Licenses;
+using Licentra.API.Services.Licenses;
+using Licentra.API.Interfaces.LicenseAssignments;
+using Licentra.API.Repositories.LicenseAssignments;
+using Licentra.API.Services.LicenseAssignments;
+using Licentra.API.Interfaces.AuditLogs;
+using Licentra.API.Repositories.AuditLogs;
+using Licentra.API.Interfaces.AuditLogs;
+using Licentra.API.Services.AuditLogs;
 
 namespace Licentra.API
 {
@@ -45,6 +58,14 @@ namespace Licentra.API
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IVendorRepository, VendorRepository>();
             builder.Services.AddScoped<IVendorService, VendorService>();
+            builder.Services.AddScoped<ISoftwareRepository, SoftwareRepository>();
+            builder.Services.AddScoped<ISoftwareService, SoftwareService>();
+            builder.Services.AddScoped<ILicenseRepository, LicenseRepository>();
+            builder.Services.AddScoped<ILicenseService, LicenseService>();
+            builder.Services.AddScoped<ILicenseAssignmentRepository, LicenseAssignmentRepository>();
+            builder.Services.AddScoped<ILicenseAssignmentService, LicenseAssignmentService>();
+            builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+            builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 
             var app = builder.Build();
 

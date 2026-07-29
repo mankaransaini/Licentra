@@ -11,6 +11,10 @@ using Licentra.API.Services.Employees;
 using Licentra.API.Interfaces.Roles;
 using Licentra.API.Repositories.Roles;
 using Licentra.API.Services.Roles;
+using Licentra.API.Interfaces.Users;
+using Licentra.API.Repositories.Users;
+using Licentra.API.Services.Users;
+
 namespace Licentra.API
 {
     public class Program
@@ -34,6 +38,8 @@ namespace Licentra.API
             builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
             builder.Services.AddScoped<IRoleRepository, RoleRepository>();
             builder.Services.AddScoped<IRoleService, RoleService>();
+            builder.Services.AddScoped<IUserRepository, UserRepository>();
+            builder.Services.AddScoped<IUserService, UserService>();
 
             var app = builder.Build();
 

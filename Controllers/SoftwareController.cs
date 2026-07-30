@@ -3,9 +3,11 @@ using Licentra.API.DTOs.Software;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.Software;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Licentra.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class SoftwareController : ControllerBase

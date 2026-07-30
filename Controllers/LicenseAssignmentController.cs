@@ -3,9 +3,11 @@ using Licentra.API.DTOs.LicenseAssignments;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.LicenseAssignments;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Licentra.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class LicenseAssignmentController : ControllerBase

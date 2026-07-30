@@ -2,10 +2,12 @@
 using Licentra.API.DTOs.Employees;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.Employees;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Licentra.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class EmployeesController : ControllerBase
@@ -46,6 +48,7 @@ namespace Licentra.API.Controllers
             ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPost]
         public async Task<ActionResult<ApiResponse<EmployeeDto>>> CreateEmployee(CreateEmployeeDto dto)
         {
@@ -62,6 +65,7 @@ namespace Licentra.API.Controllers
             );
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> UpdateEmployee(int id, UpdateEmployeeDto dto)
         {
@@ -79,6 +83,7 @@ namespace Licentra.API.Controllers
             ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> DeleteEmployee(int id)
         {

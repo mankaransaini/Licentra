@@ -2,10 +2,12 @@
 using Licentra.API.DTOs.Roles;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.Roles;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Licentra.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class RolesController : ControllerBase
@@ -46,6 +48,7 @@ namespace Licentra.API.Controllers
             ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPost]
         public async Task<ActionResult<ApiResponse<RoleDto>>> CreateRole(CreateRoleDto dto)
         {
@@ -61,6 +64,7 @@ namespace Licentra.API.Controllers
                 ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> UpdateRole(int id, UpdateRoleDto dto)
         {
@@ -76,8 +80,9 @@ namespace Licentra.API.Controllers
                 "Role updated successfully.",
                 null
             ));
-        }   
+        }
 
+        [Authorize(Roles = "Administrator")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> DeleteRole(int id)
         {
@@ -95,4 +100,4 @@ namespace Licentra.API.Controllers
             ));
         }
     }
-}
+}   

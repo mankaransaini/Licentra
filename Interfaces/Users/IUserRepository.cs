@@ -18,7 +18,6 @@ namespace Licentra.API.Interfaces.Users
         Task<bool> EmployeeExistsAsync(int employeeId);
         Task<bool> RoleExistsAsync(int roleId);
         Task<bool> EmployeeHasUserAsync(int employeeId);
-
         Task SaveChangesAsync();
     }
 }

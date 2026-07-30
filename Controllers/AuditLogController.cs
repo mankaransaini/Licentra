@@ -2,10 +2,12 @@
 using Licentra.API.DTOs.AuditLogs;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.AuditLogs;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Licentra.API.Controllers
 {
+    [Authorize(Roles = "Administrator")]
     [Route("api/[controller]")]
     [ApiController]
     public class AuditLogController : ControllerBase

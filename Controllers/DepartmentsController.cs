@@ -2,8 +2,10 @@
 using Licentra.API.Interfaces.Departments;
 using Microsoft.AspNetCore.Mvc;
 using Licentra.API.Common.Responses;
+using Microsoft.AspNetCore.Authorization;
 namespace Licentra.API.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class DepartmentsController : ControllerBase

@@ -37,6 +37,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using Licentra.API.Interfaces.Security;
 using Licentra.API.Services.Security;
+using Licentra.API.Interfaces.Auth;
+using Licentra.API.Services.Auth;
+using Microsoft.OpenApi.Models;
 
 namespace Licentra.API
 {
@@ -65,6 +68,15 @@ namespace Licentra.API
             IssuerSigningKey = new SymmetricSecurityKey(
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
         };
+
+        options.Events = new JwtBearerEvents
+        {
+            OnAuthenticationFailed = context =>
+            {
+                Console.WriteLine("JWT ERROR: " + context.Exception.Message);
+                return Task.CompletedTask;
+            }
+        };
     });
 
             builder.Services.AddAuthorization();
@@ -74,7 +86,34 @@ namespace Licentra.API
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Name = "Authorization",
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "Bearer",
+                    BearerFormat = "JWT",
+                    In = ParameterLocation.Header,
+                    Description = "Enter JWT Token like: Bearer {your token}"
+                });
+
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+            });
             builder.Services.AddDbContext<LicentraDbContext>(options =>
     options.UseSqlServer(
         builder.Configuration.GetConnectionString("LicentraConnection")));
@@ -98,6 +137,7 @@ namespace Licentra.API
             builder.Services.AddScoped<IAuditLogService, AuditLogService>();
             builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
             builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+            builder.Services.AddScoped<IAuthService, AuthService>();
 
             var app = builder.Build();
 
@@ -108,17 +148,17 @@ namespace Licentra.API
                 app.UseSwaggerUI();
             }
 
-            app.UseHttpsRedirection();
+                app.UseHttpsRedirection();
 
-            app.UseMiddleware<ExceptionMiddleware>();
+                app.UseMiddleware<ExceptionMiddleware>();
 
-            app.UseAuthentication();
+                app.UseAuthentication();
 
-            app.UseAuthorization();
+                app.UseAuthorization();
 
-            app.MapControllers();
+                app.MapControllers();
 
-            app.Run();
+                app.Run();
         }
     }
 }

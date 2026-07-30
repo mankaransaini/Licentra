@@ -2,8 +2,8 @@
 using Licentra.API.DTOs.Licenses;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.Licenses;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Licentra.API.Controllers
 {
@@ -46,6 +46,7 @@ namespace Licentra.API.Controllers
             ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPost]
         public async Task<ActionResult<ApiResponse<LicenseDto>>> CreateLicense(CreateLicenseDto dto)
         {
@@ -61,6 +62,7 @@ namespace Licentra.API.Controllers
                 ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> UpdateLicense(int id, UpdateLicenseDto dto)
         {
@@ -76,6 +78,7 @@ namespace Licentra.API.Controllers
             ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> DeleteLicense(int id)
         {

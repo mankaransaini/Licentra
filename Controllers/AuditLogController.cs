@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Licentra.API.Controllers
 {
-    [Authorize(Roles = "Administrator")]
+    [Authorize(Roles = "Administrator")] //exception fileeeee 
     [Route("api/[controller]")]
     [ApiController]
     public class AuditLogController : ControllerBase
@@ -46,49 +46,6 @@ namespace Licentra.API.Controllers
             ));
         }
 
-        [HttpPost]
-        public async Task<ActionResult<ApiResponse<AuditLogDto>>> CreateAuditLog(CreateAuditLogDto dto)
-        {
-            var log = await _auditLogService.AddAsync(dto);
-
-            return CreatedAtAction(
-                nameof(GetAuditLogById),
-                new { id = log.AuditLogId },
-                new ApiResponse<AuditLogDto>(
-                    true,
-                    "Audit log created successfully.",
-                    log
-                ));
-        }
-
-        [HttpPut("{id}")]
-        public async Task<ActionResult<ApiResponse<object>>> UpdateAuditLog(int id, UpdateAuditLogDto dto)
-        {
-            var updated = await _auditLogService.UpdateAsync(id, dto);
-
-            if (!updated)
-                throw new NotFoundException("Audit log not found.");
-
-            return Ok(new ApiResponse<object>(
-                true,
-                "Audit log updated successfully.",
-                null
-            ));
-        }
-
-        [HttpDelete("{id}")]
-        public async Task<ActionResult<ApiResponse<object>>> DeleteAuditLog(int id)
-        {
-            var deleted = await _auditLogService.DeleteAsync(id);
-
-            if (!deleted)
-                throw new NotFoundException("Audit log not found.");
-
-            return Ok(new ApiResponse<object>(
-                true,
-                "Audit log deleted successfully.",
-                null
-            ));
-        }
+        
     }
 }

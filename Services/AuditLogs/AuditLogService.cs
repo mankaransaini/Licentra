@@ -2,17 +2,24 @@
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Models;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 
 namespace Licentra.API.Services.AuditLogs
 {
     public class AuditLogService : IAuditLogService
     {
         private readonly IAuditLogRepository _auditLogRepository;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public AuditLogService(IAuditLogRepository auditLogRepository)
+        public AuditLogService(
+            IAuditLogRepository auditLogRepository,
+            IHttpContextAccessor httpContextAccessor)
         {
             _auditLogRepository = auditLogRepository ??
                 throw new ArgumentNullException(nameof(auditLogRepository));
+
+            _httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<IEnumerable<AuditLogDto>> GetAllAsync()
@@ -52,72 +59,32 @@ namespace Licentra.API.Services.AuditLogs
             };
         }
 
-        public async Task<AuditLogDto> AddAsync(CreateAuditLogDto dto)
+        public async Task LogAsync(
+    string action,
+    string tableName,
+    int recordId,
+    string description)
         {
-            if (!await _auditLogRepository.UserExistsAsync(dto.UserId))
-                throw new BadRequestException("User does not exist.");
+            var userIdClaim = _httpContextAccessor.HttpContext?
+                .User
+                .FindFirst(ClaimTypes.NameIdentifier)?
+                .Value;
+
+            if (!int.TryParse(userIdClaim, out int userId))
+                return;
 
             var auditLog = new AuditLog
             {
-                UserId = dto.UserId,
-                Action = dto.Action.Trim(),
-                TableName = dto.TableName.Trim(),
-                RecordId = dto.RecordId,
-                Description = dto.Description?.Trim(),
+                UserId = userId,
+                Action = action,
+                TableName = tableName,
+                RecordId = recordId,
+                Description = description,
                 ActionDate = DateTime.UtcNow
             };
 
             await _auditLogRepository.AddAsync(auditLog);
             await _auditLogRepository.SaveChangesAsync();
-
-            var created = await _auditLogRepository.GetByIdAsync(auditLog.AuditLogId);
-
-            return new AuditLogDto
-            {
-                AuditLogId = created!.AuditLogId,
-                UserId = created.UserId,
-                Username = created.User.Username,
-                Action = created.Action,
-                TableName = created.TableName,
-                RecordId = created.RecordId,
-                Description = created.Description,
-                ActionDate = created.ActionDate
-            };
-        }
-
-        public async Task<bool> UpdateAsync(int auditLogId, UpdateAuditLogDto dto)
-        {
-            var auditLog = await _auditLogRepository.GetByIdAsync(auditLogId);
-
-            if (auditLog == null)
-                return false;
-
-            if (!await _auditLogRepository.UserExistsAsync(dto.UserId))
-                throw new BadRequestException("User does not exist.");
-
-            auditLog.UserId = dto.UserId;
-            auditLog.Action = dto.Action.Trim();
-            auditLog.TableName = dto.TableName.Trim();
-            auditLog.RecordId = dto.RecordId;
-            auditLog.Description = dto.Description?.Trim();
-
-            await _auditLogRepository.UpdateAsync(auditLog);
-            await _auditLogRepository.SaveChangesAsync();
-
-            return true;
-        }
-
-        public async Task<bool> DeleteAsync(int auditLogId)
-        {
-            var auditLog = await _auditLogRepository.GetByIdAsync(auditLogId);
-
-            if (auditLog == null)
-                return false;
-
-            await _auditLogRepository.DeleteAsync(auditLog);
-            await _auditLogRepository.SaveChangesAsync();
-
-            return true;
         }
     }
 }

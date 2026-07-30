@@ -8,10 +8,10 @@ namespace Licentra.API.Interfaces.AuditLogs
 
         Task<AuditLogDto?> GetByIdAsync(int auditLogId);
 
-        Task<AuditLogDto> AddAsync(CreateAuditLogDto dto);
-
-        Task<bool> UpdateAsync(int auditLogId, UpdateAuditLogDto dto);
-
-        Task<bool> DeleteAsync(int auditLogId);
+        Task LogAsync(
+            string action,
+            string tableName,
+            int recordId,
+            string description);
     }
 }

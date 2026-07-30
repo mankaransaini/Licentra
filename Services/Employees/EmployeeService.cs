@@ -1,5 +1,6 @@
 ﻿using Licentra.API.DTOs.Employees;
 using Licentra.API.Exceptions.Custom;
+using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.Employees;
 using Licentra.API.Models;
 
@@ -8,11 +9,17 @@ namespace Licentra.API.Services.Employees
     public class EmployeeService : IEmployeeService
     {
         private readonly IEmployeeRepository _employeeRepository;
+        private readonly IAuditLogService _auditLogService;
 
-        public EmployeeService(IEmployeeRepository employeeRepository)
+        public EmployeeService(
+            IEmployeeRepository employeeRepository,
+            IAuditLogService auditLogService)
         {
             _employeeRepository = employeeRepository ??
                 throw new ArgumentNullException(nameof(employeeRepository));
+
+            _auditLogService = auditLogService ??
+                throw new ArgumentNullException(nameof(auditLogService));
         }
 
         public async Task<IEnumerable<EmployeeDto>> GetAllAsync()
@@ -71,6 +78,7 @@ namespace Licentra.API.Services.Employees
             {
                 throw new BadRequestException("Invalid Department.");
             }
+
             if (await _employeeRepository.EmployeeCodeExistsAsync(dto.EmployeeCode))
             {
                 throw new ConflictException("Employee code already exists.");
@@ -92,6 +100,13 @@ namespace Licentra.API.Services.Employees
 
             await _employeeRepository.AddAsync(employee);
             await _employeeRepository.SaveChangesAsync();
+
+            await _auditLogService.LogAsync(
+                "CREATE",
+                "Employee",
+                employee.EmployeeId,
+                $"Created employee '{employee.FirstName} {employee.LastName}'"
+            );
 
             employee = await _employeeRepository.GetByIdAsync(employee.EmployeeId)
                        ?? throw new Exception("Employee could not be loaded after creation.");
@@ -138,6 +153,13 @@ namespace Licentra.API.Services.Employees
             await _employeeRepository.UpdateAsync(employee);
             await _employeeRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "UPDATE",
+                "Employee",
+                employee.EmployeeId,
+                $"Updated employee '{employee.FirstName} {employee.LastName}'"
+            );
+
             return true;
         }
 
@@ -148,8 +170,17 @@ namespace Licentra.API.Services.Employees
             if (employee == null)
                 return false;
 
+            string employeeName = $"{employee.FirstName} {employee.LastName}";
+
             await _employeeRepository.DeleteAsync(employee);
             await _employeeRepository.SaveChangesAsync();
+
+            await _auditLogService.LogAsync(
+                "DELETE",
+                "Employee",
+                employee.EmployeeId,
+                $"Deleted employee '{employeeName}'"
+            );
 
             return true;
         }

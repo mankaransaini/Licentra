@@ -2,12 +2,12 @@
 using Licentra.API.DTOs.Users;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.Users;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Licentra.API.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Administrator")]
     [Route("api/[controller]")]
     [ApiController]
     public class UsersController : ControllerBase

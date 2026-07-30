@@ -138,6 +138,8 @@ namespace Licentra.API
             builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
             builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
             builder.Services.AddScoped<IAuthService, AuthService>();
+            builder.Services.AddHttpContextAccessor();
+
 
             var app = builder.Build();
 

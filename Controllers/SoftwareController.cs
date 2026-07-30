@@ -2,8 +2,8 @@
 using Licentra.API.DTOs.Software;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.Software;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Licentra.API.Controllers
 {
@@ -46,6 +46,7 @@ namespace Licentra.API.Controllers
             ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPost]
         public async Task<ActionResult<ApiResponse<SoftwareDto>>> CreateSoftware(CreateSoftwareDto dto)
         {
@@ -61,6 +62,7 @@ namespace Licentra.API.Controllers
                 ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPut("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> UpdateSoftware(int id, UpdateSoftwareDto dto)
         {
@@ -76,6 +78,7 @@ namespace Licentra.API.Controllers
             ));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<object>>> DeleteSoftware(int id)
         {

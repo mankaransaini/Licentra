@@ -3,6 +3,7 @@ using Licentra.API.Interfaces.Departments;
 using Microsoft.AspNetCore.Mvc;
 using Licentra.API.Common.Responses;
 using Microsoft.AspNetCore.Authorization;
+
 namespace Licentra.API.Controllers
 {
     [Authorize]
@@ -21,11 +22,12 @@ namespace Licentra.API.Controllers
         public async Task<ActionResult<IEnumerable<DepartmentDto>>> GetAll()
         {
             var departments = await _departmentService.GetAllAsync();
+
             return Ok(
-    new ApiResponse<IEnumerable<DepartmentDto>>(
-        true,
-        "Departments retrieved successfully.",
-        departments));
+                new ApiResponse<IEnumerable<DepartmentDto>>(
+                    true,
+                    "Departments retrieved successfully.",
+                    departments));
         }
 
         [HttpGet("{id:int}")]
@@ -39,26 +41,28 @@ namespace Licentra.API.Controllers
             }
 
             return Ok(
-    new ApiResponse<DepartmentDto>(
-        true,
-        "Department retrieved successfully.",
-        department));
+                new ApiResponse<DepartmentDto>(
+                    true,
+                    "Department retrieved successfully.",
+                    department));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPost]
         public async Task<ActionResult<DepartmentDto>> Create(CreateDepartmentDto createDepartmentDto)
         {
             var department = await _departmentService.AddAsync(createDepartmentDto);
 
             return CreatedAtAction(
-    nameof(GetById),
-    new { departmentId = department.DepartmentId },
-    new ApiResponse<DepartmentDto>(
-        true,
-        "Department created successfully.",
-        department));
+                nameof(GetById),
+                new { departmentId = department.DepartmentId },
+                new ApiResponse<DepartmentDto>(
+                    true,
+                    "Department created successfully.",
+                    department));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpPut("{id:int}")]
         public async Task<IActionResult> Update(int id, UpdateDepartmentDto updateDepartmentDto)
         {
@@ -70,12 +74,13 @@ namespace Licentra.API.Controllers
             }
 
             return Ok(
-    new ApiResponse<object>(
-        true,
-        "Department updated successfully.",
-        null));
+                new ApiResponse<object>(
+                    true,
+                    "Department updated successfully.",
+                    null));
         }
 
+        [Authorize(Roles = "Administrator")]
         [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
@@ -87,10 +92,10 @@ namespace Licentra.API.Controllers
             }
 
             return Ok(
-    new ApiResponse<object>(
-        true,
-        "Department deleted successfully.",
-        null));
+                new ApiResponse<object>(
+                    true,
+                    "Department deleted successfully.",
+                    null));
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Licentra.API.DTOs.Vendors;
 using Licentra.API.Exceptions.Custom;
+using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.Vendors;
 using Licentra.API.Models;
 
@@ -8,11 +9,17 @@ namespace Licentra.API.Services.Vendors
     public class VendorService : IVendorService
     {
         private readonly IVendorRepository _vendorRepository;
+        private readonly IAuditLogService _auditLogService;
 
-        public VendorService(IVendorRepository vendorRepository)
+        public VendorService(
+            IVendorRepository vendorRepository,
+            IAuditLogService auditLogService)
         {
             _vendorRepository = vendorRepository ??
                 throw new ArgumentNullException(nameof(vendorRepository));
+
+            _auditLogService = auditLogService ??
+                throw new ArgumentNullException(nameof(auditLogService));
         }
 
         public async Task<IEnumerable<VendorDto>> GetAllAsync()
@@ -74,6 +81,13 @@ namespace Licentra.API.Services.Vendors
             await _vendorRepository.AddAsync(vendor);
             await _vendorRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "CREATE",
+                "Vendor",
+                vendor.VendorId,
+                $"Created vendor '{vendor.VendorName}'"
+            );
+
             return new VendorDto
             {
                 VendorId = vendor.VendorId,
@@ -112,6 +126,13 @@ namespace Licentra.API.Services.Vendors
             await _vendorRepository.UpdateAsync(vendor);
             await _vendorRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "UPDATE",
+                "Vendor",
+                vendor.VendorId,
+                $"Updated vendor '{vendor.VendorName}'"
+            );
+
             return true;
         }
 
@@ -122,8 +143,17 @@ namespace Licentra.API.Services.Vendors
             if (vendor == null)
                 return false;
 
+            string vendorName = vendor.VendorName;
+
             await _vendorRepository.DeleteAsync(vendor);
             await _vendorRepository.SaveChangesAsync();
+
+            await _auditLogService.LogAsync(
+                "DELETE",
+                "Vendor",
+                vendor.VendorId,
+                $"Deleted vendor '{vendorName}'"
+            );
 
             return true;
         }

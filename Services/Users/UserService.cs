@@ -1,5 +1,6 @@
 ﻿using Licentra.API.DTOs.Users;
 using Licentra.API.Exceptions.Custom;
+using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.Users;
 using Licentra.API.Models;
 using Licentra.API.Interfaces.Security;
@@ -10,16 +11,21 @@ namespace Licentra.API.Services.Users
     {
         private readonly IUserRepository _userRepository;
         private readonly IPasswordHasher _passwordHasher;
+        private readonly IAuditLogService _auditLogService;
 
         public UserService(
-    IUserRepository userRepository,
-    IPasswordHasher passwordHasher)
+            IUserRepository userRepository,
+            IPasswordHasher passwordHasher,
+            IAuditLogService auditLogService)
         {
             _userRepository = userRepository ??
                 throw new ArgumentNullException(nameof(userRepository));
 
             _passwordHasher = passwordHasher ??
                 throw new ArgumentNullException(nameof(passwordHasher));
+
+            _auditLogService = auditLogService ??
+                throw new ArgumentNullException(nameof(auditLogService));
         }
 
         public async Task<IEnumerable<UserDto>> GetAllAsync()
@@ -94,6 +100,13 @@ namespace Licentra.API.Services.Users
             await _userRepository.AddAsync(user);
             await _userRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "CREATE",
+                "User",
+                user.UserId,
+                $"Created user '{user.Username}'"
+            );
+
             var createdUser = await _userRepository.GetByIdAsync(user.UserId);
 
             return new UserDto
@@ -141,6 +154,13 @@ namespace Licentra.API.Services.Users
             await _userRepository.UpdateAsync(user);
             await _userRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "UPDATE",
+                "User",
+                user.UserId,
+                $"Updated user '{user.Username}'"
+            );
+
             return true;
         }
 
@@ -151,8 +171,17 @@ namespace Licentra.API.Services.Users
             if (user == null)
                 return false;
 
+            string username = user.Username;
+
             await _userRepository.DeleteAsync(user);
             await _userRepository.SaveChangesAsync();
+
+            await _auditLogService.LogAsync(
+                "DELETE",
+                "User",
+                user.UserId,
+                $"Deleted user '{username}'"
+            );
 
             return true;
         }

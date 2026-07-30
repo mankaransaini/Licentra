@@ -1,5 +1,6 @@
 ﻿using Licentra.API.DTOs.Software;
 using Licentra.API.Exceptions.Custom;
+using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.Software;
 
 namespace Licentra.API.Services.Software
@@ -7,11 +8,17 @@ namespace Licentra.API.Services.Software
     public class SoftwareService : ISoftwareService
     {
         private readonly ISoftwareRepository _softwareRepository;
+        private readonly IAuditLogService _auditLogService;
 
-        public SoftwareService(ISoftwareRepository softwareRepository)
+        public SoftwareService(
+            ISoftwareRepository softwareRepository,
+            IAuditLogService auditLogService)
         {
             _softwareRepository = softwareRepository ??
                 throw new ArgumentNullException(nameof(softwareRepository));
+
+            _auditLogService = auditLogService ??
+                throw new ArgumentNullException(nameof(auditLogService));
         }
 
         public async Task<IEnumerable<SoftwareDto>> GetAllAsync()
@@ -78,6 +85,13 @@ namespace Licentra.API.Services.Software
             await _softwareRepository.AddAsync(software);
             await _softwareRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "CREATE",
+                "Software",
+                software.SoftwareId,
+                $"Created software '{software.SoftwareName} {software.Version}'"
+            );
+
             var createdSoftware = await _softwareRepository.GetByIdAsync(software.SoftwareId);
 
             return new SoftwareDto
@@ -126,6 +140,13 @@ namespace Licentra.API.Services.Software
             await _softwareRepository.UpdateAsync(software);
             await _softwareRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "UPDATE",
+                "Software",
+                software.SoftwareId,
+                $"Updated software '{software.SoftwareName} {software.Version}'"
+            );
+
             return true;
         }
 
@@ -136,8 +157,17 @@ namespace Licentra.API.Services.Software
             if (software == null)
                 return false;
 
+            string softwareName = $"{software.SoftwareName} {software.Version}";
+
             await _softwareRepository.DeleteAsync(software);
             await _softwareRepository.SaveChangesAsync();
+
+            await _auditLogService.LogAsync(
+                "DELETE",
+                "Software",
+                software.SoftwareId,
+                $"Deleted software '{softwareName}'"
+            );
 
             return true;
         }

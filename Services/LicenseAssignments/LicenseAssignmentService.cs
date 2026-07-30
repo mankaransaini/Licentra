@@ -1,5 +1,6 @@
 ﻿using Licentra.API.DTOs.LicenseAssignments;
 using Licentra.API.Exceptions.Custom;
+using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.LicenseAssignments;
 using Licentra.API.Models;
 
@@ -8,11 +9,17 @@ namespace Licentra.API.Services.LicenseAssignments
     public class LicenseAssignmentService : ILicenseAssignmentService
     {
         private readonly ILicenseAssignmentRepository _licenseAssignmentRepository;
+        private readonly IAuditLogService _auditLogService;
 
-        public LicenseAssignmentService(ILicenseAssignmentRepository licenseAssignmentRepository)
+        public LicenseAssignmentService(
+            ILicenseAssignmentRepository licenseAssignmentRepository,
+            IAuditLogService auditLogService)
         {
             _licenseAssignmentRepository = licenseAssignmentRepository ??
                 throw new ArgumentNullException(nameof(licenseAssignmentRepository));
+
+            _auditLogService = auditLogService ??
+                throw new ArgumentNullException(nameof(auditLogService));
         }
 
         public async Task<IEnumerable<LicenseAssignmentDto>> GetAllAsync()
@@ -90,6 +97,13 @@ namespace Licentra.API.Services.LicenseAssignments
             await _licenseAssignmentRepository.AddAsync(assignment);
             await _licenseAssignmentRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "CREATE",
+                "LicenseAssignment",
+                assignment.AssignmentId,
+                $"Assigned license '{assignment.LicenseId}' to employee '{assignment.EmployeeId}'"
+            );
+
             var created = await _licenseAssignmentRepository.GetByIdAsync(assignment.AssignmentId);
 
             return new LicenseAssignmentDto
@@ -149,6 +163,13 @@ namespace Licentra.API.Services.LicenseAssignments
             await _licenseAssignmentRepository.UpdateAsync(assignment);
             await _licenseAssignmentRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "UPDATE",
+                "LicenseAssignment",
+                assignment.AssignmentId,
+                $"Updated assignment #{assignment.AssignmentId}"
+            );
+
             return true;
         }
 
@@ -159,8 +180,17 @@ namespace Licentra.API.Services.LicenseAssignments
             if (assignment == null)
                 return false;
 
+            int id = assignment.AssignmentId;
+
             await _licenseAssignmentRepository.DeleteAsync(assignment);
             await _licenseAssignmentRepository.SaveChangesAsync();
+
+            await _auditLogService.LogAsync(
+                "DELETE",
+                "LicenseAssignment",
+                id,
+                $"Deleted assignment #{id}"
+            );
 
             return true;
         }

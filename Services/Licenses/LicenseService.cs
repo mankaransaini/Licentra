@@ -1,5 +1,6 @@
 ﻿using Licentra.API.DTOs.Licenses;
 using Licentra.API.Exceptions.Custom;
+using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.Licenses;
 using Licentra.API.Models;
 
@@ -8,11 +9,17 @@ namespace Licentra.API.Services.Licenses
     public class LicenseService : ILicenseService
     {
         private readonly ILicenseRepository _licenseRepository;
+        private readonly IAuditLogService _auditLogService;
 
-        public LicenseService(ILicenseRepository licenseRepository)
+        public LicenseService(
+            ILicenseRepository licenseRepository,
+            IAuditLogService auditLogService)
         {
             _licenseRepository = licenseRepository ??
                 throw new ArgumentNullException(nameof(licenseRepository));
+
+            _auditLogService = auditLogService ??
+                throw new ArgumentNullException(nameof(auditLogService));
         }
 
         public async Task<IEnumerable<LicenseDto>> GetAllAsync()
@@ -95,6 +102,13 @@ namespace Licentra.API.Services.Licenses
             await _licenseRepository.AddAsync(license);
             await _licenseRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "CREATE",
+                "License",
+                license.LicenseId,
+                $"Created license '{license.LicenseKey}'"
+            );
+
             var created = await _licenseRepository.GetByIdAsync(license.LicenseId);
 
             return new LicenseDto
@@ -156,6 +170,13 @@ namespace Licentra.API.Services.Licenses
             await _licenseRepository.UpdateAsync(license);
             await _licenseRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "UPDATE",
+                "License",
+                license.LicenseId,
+                $"Updated license '{license.LicenseKey}'"
+            );
+
             return true;
         }
 
@@ -166,8 +187,17 @@ namespace Licentra.API.Services.Licenses
             if (license == null)
                 return false;
 
+            string licenseKey = license.LicenseKey;
+
             await _licenseRepository.DeleteAsync(license);
             await _licenseRepository.SaveChangesAsync();
+
+            await _auditLogService.LogAsync(
+                "DELETE",
+                "License",
+                license.LicenseId,
+                $"Deleted license '{licenseKey}'"
+            );
 
             return true;
         }

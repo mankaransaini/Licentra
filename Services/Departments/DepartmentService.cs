@@ -1,16 +1,25 @@
 ﻿using Licentra.API.DTOs.Departments;
+using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.Departments;
 using Licentra.API.Models;
 using Licentra.API.Exceptions.Custom;
+
 namespace Licentra.API.Services.Departments
 {
     public class DepartmentService : IDepartmentService
     {
         private readonly IDepartmentRepository _departmentRepository;
+        private readonly IAuditLogService _auditLogService;
 
-        public DepartmentService(IDepartmentRepository departmentRepository)
+        public DepartmentService(
+            IDepartmentRepository departmentRepository,
+            IAuditLogService auditLogService)
         {
-            _departmentRepository = departmentRepository ?? throw new ArgumentNullException(nameof(departmentRepository));
+            _departmentRepository = departmentRepository ??
+                throw new ArgumentNullException(nameof(departmentRepository));
+
+            _auditLogService = auditLogService ??
+                throw new ArgumentNullException(nameof(auditLogService));
         }
 
         public async Task<IEnumerable<DepartmentDto>> GetAllAsync()
@@ -61,6 +70,13 @@ namespace Licentra.API.Services.Departments
             await _departmentRepository.AddAsync(newDepartment);
             await _departmentRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "CREATE",
+                "Department",
+                newDepartment.DepartmentId,
+                $"Created department '{newDepartment.DepartmentName}'"
+            );
+
             return new DepartmentDto
             {
                 DepartmentId = newDepartment.DepartmentId,
@@ -82,8 +98,16 @@ namespace Licentra.API.Services.Departments
             department.IsActive = updateDepartmentDto.IsActive;
 
             await _departmentRepository.UpdateAsync(department);
+            await _departmentRepository.SaveChangesAsync();
 
-            return await _departmentRepository.SaveChangesAsync();
+            await _auditLogService.LogAsync(
+                "UPDATE",
+                "Department",
+                department.DepartmentId,
+                $"Updated department '{department.DepartmentName}'"
+            );
+
+            return true;
         }
 
         public async Task<bool> DeleteAsync(int departmentId)
@@ -93,9 +117,19 @@ namespace Licentra.API.Services.Departments
             if (department == null)
                 return false;
 
-            await _departmentRepository.DeleteAsync(department);
+            string departmentName = department.DepartmentName;
 
-            return await _departmentRepository.SaveChangesAsync();
+            await _departmentRepository.DeleteAsync(department);
+            await _departmentRepository.SaveChangesAsync();
+
+            await _auditLogService.LogAsync(
+                "DELETE",
+                "Department",
+                department.DepartmentId,
+                $"Deleted department '{departmentName}'"
+            );
+
+            return true;
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using Licentra.API.DTOs.Roles;
 using Licentra.API.Exceptions.Custom;
+using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.Roles;
 using Licentra.API.Models;
 
@@ -8,11 +9,17 @@ namespace Licentra.API.Services.Roles
     public class RoleService : IRoleService
     {
         private readonly IRoleRepository _roleRepository;
+        private readonly IAuditLogService _auditLogService;
 
-        public RoleService(IRoleRepository roleRepository)
+        public RoleService(
+            IRoleRepository roleRepository,
+            IAuditLogService auditLogService)
         {
             _roleRepository = roleRepository ??
                 throw new ArgumentNullException(nameof(roleRepository));
+
+            _auditLogService = auditLogService ??
+                throw new ArgumentNullException(nameof(auditLogService));
         }
 
         public async Task<IEnumerable<RoleDto>> GetAllAsync()
@@ -61,6 +68,13 @@ namespace Licentra.API.Services.Roles
             await _roleRepository.AddAsync(role);
             await _roleRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "CREATE",
+                "Role",
+                role.RoleId,
+                $"Created role '{role.RoleName}'"
+            );
+
             return new RoleDto
             {
                 RoleId = role.RoleId,
@@ -90,6 +104,13 @@ namespace Licentra.API.Services.Roles
             await _roleRepository.UpdateAsync(role);
             await _roleRepository.SaveChangesAsync();
 
+            await _auditLogService.LogAsync(
+                "UPDATE",
+                "Role",
+                role.RoleId,
+                $"Updated role '{role.RoleName}'"
+            );
+
             return true;
         }
 
@@ -100,8 +121,17 @@ namespace Licentra.API.Services.Roles
             if (role == null)
                 return false;
 
+            string roleName = role.RoleName;
+
             await _roleRepository.DeleteAsync(role);
             await _roleRepository.SaveChangesAsync();
+
+            await _auditLogService.LogAsync(
+                "DELETE",
+                "Role",
+                role.RoleId,
+                $"Deleted role '{roleName}'"
+            );
 
             return true;
         }

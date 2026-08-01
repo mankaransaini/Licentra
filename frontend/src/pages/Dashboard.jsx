@@ -4,26 +4,12 @@ import { Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '../services/api';
 
-// Mock data for charts
-const deptData = [
-  { name: 'Eng', allocated: 120 },
-  { name: 'Sales', allocated: 85 },
-  { name: 'Marketing', allocated: 45 },
-  { name: 'HR', allocated: 20 },
-  { name: 'IT', allocated: 65 },
-];
-
-const usageData = [
-  { month: 'Jan', active: 200, total: 250 },
-  { month: 'Feb', active: 210, total: 250 },
-  { month: 'Mar', active: 240, total: 260 },
-  { month: 'Apr', active: 235, total: 260 },
-  { month: 'May', active: 255, total: 280 },
-  { month: 'Jun', active: 275, total: 280 },
-];
-
 const Dashboard = () => {
   const [counts, setCounts] = useState({ software: null, licenses: null, assignments: null, auditLogs: null });
+  const [deptChartData, setDeptChartData] = useState([]);
+  const [usageChartData, setUsageChartData] = useState([]);
+  const [expiredCount, setExpiredCount] = useState(0);
+  const [expiringSoonCount, setExpiringSoonCount] = useState(0);
 
   useEffect(() => {
     anime({
@@ -37,21 +23,112 @@ const Dashboard = () => {
 
     const loadLiveStats = async () => {
       try {
-        const [swRes, licRes, asgRes, auditRes] = await Promise.allSettled([
+        const [swRes, licRes, asgRes, auditRes, empRes, deptRes] = await Promise.allSettled([
           api.get('/software'),
           api.get('/license'),
           api.get('/licenseassignment'),
-          api.get('/auditlog')
+          api.get('/auditlog'),
+          api.get('/employees'),
+          api.get('/departments')
         ]);
 
-        const getLength = (res) => (res.status === 'fulfilled' && Array.isArray(res.value.data) ? res.value.data.length : null);
+        const getArray = (res) => (res.status === 'fulfilled' && Array.isArray(res.value.data) ? res.value.data : []);
+
+        const swList = getArray(swRes);
+        const licList = getArray(licRes);
+        const asgList = getArray(asgRes);
+        const auditList = getArray(auditRes);
+        const empList = getArray(empRes);
+        const deptList = getArray(deptRes);
 
         setCounts({
-          software: getLength(swRes),
-          licenses: getLength(licRes),
-          assignments: getLength(asgRes),
-          auditLogs: getLength(auditRes)
+          software: swList.length,
+          licenses: licList.length,
+          assignments: asgList.length,
+          auditLogs: auditList.length
         });
+
+        // 1. Calculate Licenses by Department
+        const deptMap = {};
+        deptList.forEach(d => {
+          deptMap[d.departmentName] = 0;
+        });
+
+        asgList.forEach(asg => {
+          const emp = empList.find(e => e.employeeId === asg.employeeId || e.fullName === asg.employeeName);
+          const deptName = emp?.departmentName || (emp?.department ? emp.department.departmentName : null);
+          if (deptName) {
+            deptMap[deptName] = (deptMap[deptName] || 0) + 1;
+          } else if (asg.employeeName) {
+            deptMap['General'] = (deptMap['General'] || 0) + 1;
+          }
+        });
+
+        let formattedDept = Object.keys(deptMap).map(dName => ({
+          name: dName,
+          allocated: deptMap[dName]
+        }));
+        
+        // Filter out empty clutter departments or take active ones for clean alignment
+        const activeDepts = formattedDept.filter(d => d.allocated > 0);
+        if (activeDepts.length > 0) {
+          formattedDept = activeDepts;
+        } else {
+          formattedDept = formattedDept.slice(0, 5);
+        }
+
+        setDeptChartData(formattedDept.length > 0 ? formattedDept : [
+          { name: 'General', allocated: asgList.length }
+        ]);
+
+        // 2. Calculate Active vs Total Licenses (6 Months Trend)
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const now = new Date();
+        const last6Months = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          last6Months.push({
+            monthKey: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`,
+            monthLabel: monthNames[d.getMonth()],
+            total: 0,
+            active: 0
+          });
+        }
+
+        last6Months.forEach(m => {
+          const mEnd = new Date(m.monthKey + '-31T23:59:59');
+          m.total = licList.filter(l => !l.createdAt || new Date(l.createdAt) <= mEnd).length;
+          m.active = asgList.filter(a => !a.assignedDate || new Date(a.assignedDate) <= mEnd).length;
+        });
+
+        setUsageChartData(last6Months.map(m => ({
+          month: m.monthLabel,
+          active: m.active,
+          total: m.total
+        })));
+
+        // 3. Calculate Expiry Alerts
+        const today = new Date();
+        const thirtyDays = new Date();
+        thirtyDays.setDate(today.getDate() + 30);
+
+        let expired = 0;
+        let expiringSoon = 0;
+
+        licList.forEach(l => {
+          if (l.expiryDate) {
+            const exp = new Date(l.expiryDate);
+            if (exp < today) {
+              expired++;
+            } else if (exp <= thirtyDays) {
+              expiringSoon++;
+            }
+          }
+        });
+
+        setExpiredCount(expired);
+        setExpiringSoonCount(expiringSoon);
+
       } catch (e) {
         console.error("Could not fetch dashboard live stats", e);
       }
@@ -60,15 +137,15 @@ const Dashboard = () => {
     loadLiveStats();
   }, []);
 
-  const totalLic = counts.licenses ?? 7;
-  const totalAsg = counts.assignments ?? 3;
+  const totalLic = counts.licenses ?? 0;
+  const totalAsg = counts.assignments ?? 0;
   const seatPercent = totalLic > 0 ? Math.round((totalAsg / totalLic) * 100) : 0;
 
   const topStats = [
-    { title: 'SOFTWARE CATALOG', value: counts.software !== null ? String(counts.software) : '7', subtitle: 'Applications', icon: '💿', color: '#eef2ff', iconColor: '#6366f1', path: '/software', animClass: 'icon-spin' },
-    { title: 'TOTAL LICENSES', value: counts.licenses !== null ? String(counts.licenses) : '7', subtitle: 'Registered Keys', icon: '🔑', color: '#f0fdf4', iconColor: '#16a34a', path: '/licenses', animClass: 'icon-wiggle' },
+    { title: 'SOFTWARE CATALOG', value: counts.software !== null ? String(counts.software) : '0', subtitle: 'Applications', icon: '💿', color: '#eef2ff', iconColor: '#6366f1', path: '/software', animClass: 'icon-spin' },
+    { title: 'TOTAL LICENSES', value: counts.licenses !== null ? String(counts.licenses) : '0', subtitle: 'Registered Keys', icon: '🔑', color: '#f0fdf4', iconColor: '#16a34a', path: '/licenses', animClass: 'icon-wiggle' },
     { title: 'SEAT ALLOCATION', value: `${seatPercent}%`, subtitle: `(${totalAsg}/${totalLic})`, icon: '📁', color: '#fff7ed', iconColor: '#ea580c', path: '/assignments', animClass: 'icon-bounce' },
-    { title: 'COMPLIANCE RISKS', value: '0', subtitle: 'Alert Flags', icon: '🛡️', color: '#f0fdf4', iconColor: '#16a34a', path: '/auditlogs', animClass: 'icon-pulse' }
+    { title: 'COMPLIANCE RISKS', value: String(expiredCount), subtitle: 'Alert Flags', icon: '🛡️', color: expiredCount > 0 ? '#fef2f2' : '#f0fdf4', iconColor: expiredCount > 0 ? '#dc2626' : '#16a34a', path: '/auditlogs', animClass: 'icon-pulse' }
   ];
 
   const trendingModules = [
@@ -107,9 +184,9 @@ const Dashboard = () => {
           <p style={{ color: 'rgba(255,255,255,0.8)', marginBottom: '2rem', maxWidth: '550px', lineHeight: '1.6', fontSize: '1.05rem' }}>
             Track allocations, oversee seat compliance, and control IT vendor spend. Got a new software application? Register a license key or coordinate employee assignments immediately.
           </p>
-          <button className="btn btn-primary" style={{ padding: '0.85rem 1.75rem', fontSize: '1.05rem', borderRadius: '12px' }}>
+          <Link to="/licenses" className="btn btn-primary" style={{ padding: '0.85rem 1.75rem', fontSize: '1.05rem', borderRadius: '12px', textDecoration: 'none', display: 'inline-block' }}>
             Register New License &rarr;
-          </button>
+          </Link>
         </div>
         
         <div style={{ 
@@ -123,11 +200,15 @@ const Dashboard = () => {
           <h4 style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>Licentra Live Insights</h4>
           <div style={{ marginBottom: '1rem' }}>
             <div style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>✓ Employee Assignments</div>
-            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem' }}>Over 85% of registered seat licenses are currently assigned and active in the catalog.</div>
+            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem' }}>
+              {totalLic > 0 ? `${seatPercent}% of registered seat licenses are currently assigned in the database.` : 'Register licenses to track seat allocations.'}
+            </div>
           </div>
           <div>
-            <div style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>⚠ Reclaimable Seats</div>
-            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem' }}>Save up to $1,400/month by unassigning idle vendor software seats.</div>
+            <div style={{ fontWeight: 'bold', fontSize: '0.875rem' }}>⚠ Database Synchronized</div>
+            <div style={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.25rem' }}>
+              {counts.licenses !== null ? `${counts.licenses} Total Licenses & ${counts.assignments} Active Assignments.` : 'Fetching metrics...'}
+            </div>
           </div>
         </div>
       </div>
@@ -156,18 +237,27 @@ const Dashboard = () => {
         {/* Department Allocation Chart */}
         <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '1px', marginBottom: '1.5rem' }}>Licenses by Department</h3>
-          <div style={{ flex: 1, width: '100%', height: '250px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={deptData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+          <div style={{ width: '100%', height: '280px', minHeight: '280px' }}>
+            <ResponsiveContainer width="99%" height={280}>
+              <BarChart data={deptChartData} margin={{ top: 10, right: 20, left: -10, bottom: 25 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
-                <XAxis dataKey="name" tick={{fill: 'var(--text-secondary)', fontSize: 12}} axisLine={false} tickLine={false} />
-                <YAxis tick={{fill: 'var(--text-secondary)', fontSize: 12}} axisLine={false} tickLine={false} />
+                <XAxis 
+                  dataKey="name" 
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 11 }} 
+                  axisLine={false} 
+                  tickLine={false}
+                  interval={0}
+                  angle={-15}
+                  textAnchor="end"
+                  height={35}
+                />
+                <YAxis allowDecimals={false} tick={{fill: 'var(--text-secondary)', fontSize: 12}} axisLine={false} tickLine={false} />
                 <RechartsTooltip 
                   contentStyle={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)', borderRadius: '8px', boxShadow: 'var(--shadow-md)' }} 
                   itemStyle={{ color: 'var(--text-primary)' }}
                   cursor={{fill: 'rgba(249,115,22,0.1)'}} 
                 />
-                <Bar dataKey="allocated" fill="url(#colorAllocated)" radius={[4, 4, 0, 0]} barSize={30} />
+                <Bar dataKey="allocated" name="Allocated Licenses" fill="url(#colorAllocated)" radius={[4, 4, 0, 0]} barSize={28} />
                 <defs>
                   <linearGradient id="colorAllocated" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f97316" stopOpacity={1}/>
@@ -182,9 +272,9 @@ const Dashboard = () => {
         {/* Usage Trend Chart */}
         <div className="card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column' }}>
           <h3 style={{ fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '1px', marginBottom: '1.5rem' }}>Active vs Total Licenses (6 Months)</h3>
-          <div style={{ flex: 1, width: '100%', height: '250px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={usageData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
+          <div style={{ width: '100%', height: '280px', minHeight: '280px' }}>
+            <ResponsiveContainer width="99%" height={280}>
+              <AreaChart data={usageChartData} margin={{ top: 10, right: 20, left: -10, bottom: 10 }}>
                 <defs>
                   <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -197,13 +287,13 @@ const Dashboard = () => {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
                 <XAxis dataKey="month" tick={{fill: 'var(--text-secondary)', fontSize: 12}} axisLine={false} tickLine={false} />
-                <YAxis tick={{fill: 'var(--text-secondary)', fontSize: 12}} axisLine={false} tickLine={false} />
+                <YAxis allowDecimals={false} tick={{fill: 'var(--text-secondary)', fontSize: 12}} axisLine={false} tickLine={false} />
                 <RechartsTooltip 
                   contentStyle={{ backgroundColor: 'var(--bg-surface)', borderColor: 'var(--border-color)', borderRadius: '8px', boxShadow: 'var(--shadow-md)' }} 
                   itemStyle={{ color: 'var(--text-primary)' }}
                 />
-                <Area type="monotone" dataKey="total" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
-                <Area type="monotone" dataKey="active" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorActive)" />
+                <Area type="monotone" dataKey="total" name="Total Licenses" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" />
+                <Area type="monotone" dataKey="active" name="Active Assignments" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorActive)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -215,7 +305,7 @@ const Dashboard = () => {
         <h3 style={{ fontSize: '0.875rem', textTransform: 'uppercase', color: 'var(--text-secondary)', letterSpacing: '1px', marginBottom: '1rem' }}>Trending Modules</h3>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '1rem' }}>
           {trendingModules.map((module, i) => (
-            <Link to={module.path} key={i} className="card" style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', cursor: 'pointer', transition: 'transform 0.2s', textDecoration: 'none', color: 'inherit', ':hover': { transform: 'translateY(-2px)' } }}>
+            <Link to={module.path} key={i} className="card" style={{ padding: '1.5rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', cursor: 'pointer', transition: 'transform 0.2s', textDecoration: 'none', color: 'inherit' }}>
               <div style={{ background: module.iconBg, color: module.iconColor, width: '48px', height: '48px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem' }}>
                 <span className={`animated-icon ${module.animClass}`}>{module.icon}</span>
               </div>
@@ -237,7 +327,7 @@ const Dashboard = () => {
             <div style={{ flex: 1, border: '1px solid #fecaca', background: '#fef2f2', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ background: 'rgba(220, 38, 38, 0.1)', color: '#dc2626', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🛡️</div>
               <div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626' }}>0</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626' }}>{expiredCount}</div>
                 <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#dc2626', textTransform: 'uppercase' }}>Expired Licenses</div>
               </div>
             </div>
@@ -245,7 +335,7 @@ const Dashboard = () => {
             <div style={{ flex: 1, border: '1px solid #fde68a', background: '#fffbeb', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={{ background: 'rgba(217, 119, 6, 0.1)', color: '#d97706', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⚠</div>
               <div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#d97706' }}>0</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#d97706' }}>{expiringSoonCount}</div>
                 <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#d97706', textTransform: 'uppercase' }}>Expiring Soon</div>
               </div>
             </div>
@@ -269,7 +359,7 @@ const Dashboard = () => {
             </div>
             
             <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end' }}>
-              <button className="btn btn-primary" style={{ padding: '0.5rem 1.5rem', fontWeight: 'bold' }}>ALLOCATE</button>
+              <Link to="/assignments" className="btn btn-primary" style={{ padding: '0.5rem 1.5rem', fontWeight: 'bold', textDecoration: 'none' }}>ALLOCATE</Link>
             </div>
           </div>
         </div>

@@ -50,6 +50,15 @@ namespace Licentra.API.Controllers
         [HttpPost]
         public async Task<ActionResult<ApiResponse<LicenseAssignmentDto>>> CreateAssignment(CreateLicenseAssignmentDto dto)
         {
+            if (dto.AssignedByUserId <= 0)
+            {
+                var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+                if (int.TryParse(userIdClaim, out int uid) && uid > 0)
+                {
+                    dto.AssignedByUserId = uid;
+                }
+            }
+
             var assignment = await _licenseAssignmentService.AddAsync(dto);
 
             return CreatedAtAction(

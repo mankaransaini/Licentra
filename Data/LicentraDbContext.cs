@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Licentra.API.Models;
 using Microsoft.EntityFrameworkCore;
@@ -59,7 +59,7 @@ public partial class LicentraDbContext : DbContext
 
         modelBuilder.Entity<License>(entity =>
         {
-            entity.Property(e => e.LicenseStatus).HasDefaultValueSql("('Active')");
+            entity.Property(e => e.LicenseStatus).HasDefaultValue((byte)1);
 
             entity.HasOne(d => d.Software).WithMany(p => p.Licenses)
                 .OnDelete(DeleteBehavior.ClientSetNull)

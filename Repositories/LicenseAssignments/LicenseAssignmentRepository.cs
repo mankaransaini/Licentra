@@ -1,4 +1,4 @@
-﻿using Licentra.API.Data;
+using Licentra.API.Data;
 using Licentra.API.Interfaces.LicenseAssignments;
 using Licentra.API.Models;
 using Microsoft.EntityFrameworkCore;
@@ -72,6 +72,12 @@ namespace Licentra.API.Repositories.LicenseAssignments
         {
             return await _context.Users
                 .AnyAsync(u => u.UserId == userId);
+        }
+
+        public async Task<int> GetFirstValidUserIdAsync()
+        {
+            var user = await _context.Users.OrderBy(u => u.UserId).FirstOrDefaultAsync();
+            return user?.UserId ?? 1;
         }
 
         public async Task<bool> ActiveAssignmentExistsAsync(int licenseId, int employeeId)

@@ -1,4 +1,4 @@
-﻿using Licentra.API.Models;
+using Licentra.API.Models;
 
 namespace Licentra.API.Interfaces.LicenseAssignments
 {
@@ -21,6 +21,8 @@ namespace Licentra.API.Interfaces.LicenseAssignments
         Task<bool> EmployeeExistsAsync(int employeeId);
 
         Task<bool> UserExistsAsync(int userId);
+
+        Task<int> GetFirstValidUserIdAsync();
 
         Task<bool> ActiveAssignmentExistsAsync(int licenseId, int employeeId);
 

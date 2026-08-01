@@ -59,13 +59,35 @@ const entityConfigs = {
       { key: 'softwareName', label: 'Software' },
       { key: 'licenseKey', label: 'License Key' },
       { key: 'licenseType', label: 'Type' },
+      { key: 'purchaseDate', label: 'Purchase Date' },
+      { key: 'expiryDate', label: 'Expiry Date' },
       { key: 'seats', label: 'Seats' },
       { key: 'purchaseCost', label: 'Cost ($)' }
     ],
     formFields: [
       { name: 'softwareId', label: 'Software Application', type: 'select', endpoint: '/software', valueKey: 'softwareId', labelKey: 'softwareName', required: true },
       { name: 'licenseKey', label: 'License Key', required: true },
-      { name: 'licenseType', label: 'License Type', required: true },
+      { 
+        name: 'licenseType', 
+        label: 'License Type', 
+        type: 'select', 
+        options: ['Perpetual', 'Subscription', 'Trial', 'Volume', 'OEM', 'Non-Expiry'],
+        required: true 
+      },
+      { 
+        name: 'purchaseDate', 
+        label: 'Purchase Date', 
+        type: 'date', 
+        required: true, 
+        defaultValue: () => new Date().toISOString().split('T')[0] 
+      },
+      { 
+        name: 'expiryDate', 
+        label: 'Expiry Date', 
+        type: 'date', 
+        required: (formData) => formData.licenseType !== 'Non-Expiry', 
+        hideIf: (formData) => formData.licenseType === 'Non-Expiry' 
+      },
       { name: 'seats', label: 'Seats', type: 'number', required: true },
       { name: 'purchaseCost', label: 'Purchase Cost', type: 'number', required: true }
     ]

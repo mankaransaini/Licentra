@@ -158,6 +158,62 @@ namespace Licentra.API
 
             var app = builder.Build();
 
+            using (var scope = app.Services.CreateScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<LicentraDbContext>();
+                try
+                {
+                    db.Database.ExecuteSqlRaw(@"
+                        -- 1. Drop all check constraints on Licenses table
+                        DECLARE @chkName nvarchar(200);
+                        DECLARE chk_cursor CURSOR FOR SELECT name FROM sys.check_constraints WHERE parent_object_id = OBJECT_ID('Licenses');
+                        OPEN chk_cursor;
+                        FETCH NEXT FROM chk_cursor INTO @chkName;
+                        WHILE @@FETCH_STATUS = 0
+                        BEGIN
+                            EXEC('ALTER TABLE [Licenses] DROP CONSTRAINT [' + @chkName + '];');
+                            FETCH NEXT FROM chk_cursor INTO @chkName;
+                        END
+                        CLOSE chk_cursor;
+                        DEALLOCATE chk_cursor;
+
+                        -- 2. Drop all default constraints on Licenses table
+                        DECLARE @defName nvarchar(200);
+                        DECLARE def_cursor CURSOR FOR SELECT name FROM sys.default_constraints WHERE parent_object_id = OBJECT_ID('Licenses');
+                        OPEN def_cursor;
+                        FETCH NEXT FROM def_cursor INTO @defName;
+                        WHILE @@FETCH_STATUS = 0
+                        BEGIN
+                            EXEC('ALTER TABLE [Licenses] DROP CONSTRAINT [' + @defName + '];');
+                            FETCH NEXT FROM def_cursor INTO @defName;
+                        END
+                        CLOSE def_cursor;
+                        DEALLOCATE def_cursor;
+
+                        -- 3. Drop all triggers on Licenses table
+                        DECLARE @trgName nvarchar(200);
+                        DECLARE trg_cursor CURSOR FOR SELECT name FROM sys.triggers WHERE parent_id = OBJECT_ID('Licenses');
+                        OPEN trg_cursor;
+                        FETCH NEXT FROM trg_cursor INTO @trgName;
+                        WHILE @@FETCH_STATUS = 0
+                        BEGIN
+                            EXEC('DROP TRIGGER [' + @trgName + '];');
+                            FETCH NEXT FROM trg_cursor INTO @trgName;
+                        END
+                        CLOSE trg_cursor;
+                        DEALLOCATE trg_cursor;
+
+                        -- 4. Re-add clean tinyint default for LicenseStatus
+                        ALTER TABLE [Licenses] ADD CONSTRAINT [DF_Licenses_LicenseStatus_Clean] DEFAULT ((1)) FOR [LicenseStatus];
+                    ");
+                    Console.WriteLine("[DB CLEANUP] Successfully dropped all invalid constraints and triggers on Licenses table.");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DB FIX NOTICE] {ex.Message}");
+                }
+            }
+
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {

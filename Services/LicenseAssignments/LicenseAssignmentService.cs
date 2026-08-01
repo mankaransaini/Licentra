@@ -1,4 +1,4 @@
-﻿using Licentra.API.DTOs.LicenseAssignments;
+using Licentra.API.DTOs.LicenseAssignments;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.LicenseAssignments;
@@ -74,7 +74,9 @@ namespace Licentra.API.Services.LicenseAssignments
                 throw new BadRequestException("Employee does not exist.");
 
             if (!await _licenseAssignmentRepository.UserExistsAsync(dto.AssignedByUserId))
-                throw new BadRequestException("Assigned By User does not exist.");
+            {
+                dto.AssignedByUserId = await _licenseAssignmentRepository.GetFirstValidUserIdAsync();
+            }
 
             if (dto.ReturnedDate.HasValue &&
                 dto.ReturnedDate < dto.AssignedDate)

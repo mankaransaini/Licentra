@@ -104,7 +104,13 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
     setEditingItem(null);
     const initialForm = {};
     formFields.forEach(f => {
-      initialForm[f.name] = '';
+      if (typeof f.defaultValue === 'function') {
+        initialForm[f.name] = f.defaultValue();
+      } else if (f.defaultValue !== undefined) {
+        initialForm[f.name] = f.defaultValue;
+      } else {
+        initialForm[f.name] = '';
+      }
     });
     setFormData(initialForm);
     setFormError('');
@@ -136,19 +142,37 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
     // Format payload before posting
     const payload = { ...formData };
     formFields.forEach(f => {
-      if ((f.type === 'number' || f.type === 'select') && payload[f.name] !== '' && payload[f.name] !== null && payload[f.name] !== undefined) {
-        payload[f.name] = Number(payload[f.name]);
+      if (typeof f.hideIf === 'function' && f.hideIf(payload)) {
+        payload[f.name] = null;
+      } else if (payload[f.name] !== '' && payload[f.name] !== null && payload[f.name] !== undefined) {
+        if (f.type === 'number' || (f.type === 'select' && f.valueKey)) {
+          const num = Number(payload[f.name]);
+          if (!isNaN(num)) payload[f.name] = num;
+        }
       }
     });
+
+    // Helper to safely convert status strings to tinyint byte numbers for DB
+    const parseStatusByte = (val, defaultVal = 1) => {
+      if (val === undefined || val === null || val === '') return defaultVal;
+      if (typeof val === 'number') return val;
+      const num = Number(val);
+      if (!isNaN(num)) return num;
+      const lower = String(val).toLowerCase();
+      if (lower.includes('active') || lower.includes('valid') || lower.includes('assigned')) return 1;
+      if (lower.includes('expired') || lower.includes('returned') || lower.includes('inactive')) return 2;
+      if (lower.includes('pending') || lower.includes('suspended')) return 3;
+      return defaultVal;
+    };
 
     // Provide default required fields for backend DTOs if omitted
     const todayStr = new Date().toISOString().split('T')[0];
     if (payload.purchaseDate === undefined || payload.purchaseDate === '') payload.purchaseDate = todayStr;
-    if (payload.licenseStatus === undefined || payload.licenseStatus === '') payload.licenseStatus = 1;
+    payload.licenseStatus = parseStatusByte(payload.licenseStatus, 1);
     if (payload.joiningDate === undefined || payload.joiningDate === '') payload.joiningDate = todayStr;
     if (payload.assignedDate === undefined || payload.assignedDate === '') payload.assignedDate = new Date().toISOString();
-    if (payload.assignmentStatus === undefined || payload.assignmentStatus === '') payload.assignmentStatus = 1;
-    if (!payload.assignedByUserId) payload.assignedByUserId = 1;
+    payload.assignmentStatus = parseStatusByte(payload.assignmentStatus, 1);
+    if (!payload.assignedByUserId) payload.assignedByUserId = 0;
 
     try {
       if (editingItem) {
@@ -162,12 +186,12 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
     } catch (err) {
       console.error('Error saving record:', err);
       let msg = null;
-      if (err.response?.status === 403) {
+      if (err.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err.response?.status === 403) {
         msg = 'Access Denied (403 Forbidden): Your user account role does not have Administrator permissions for this operation. Please log in again.';
       } else if (err.response?.status === 401) {
         msg = 'Session Expired (401 Unauthorized): Please log in again.';
-      } else if (err.response?.data?.message) {
-        msg = err.response.data.message;
       } else if (err.response?.data?.title) {
         msg = err.response.data.title;
       } else if (err.response?.data?.errors) {
@@ -176,6 +200,8 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
         msg = `${firstKey}: ${Array.isArray(errObj[firstKey]) ? errObj[firstKey][0] : errObj[firstKey]}`;
       } else if (typeof err.response?.data === 'string' && err.response.data.length < 200) {
         msg = err.response.data;
+      } else if (err.message) {
+        msg = err.message;
       }
       setFormError(msg || 'Failed to save record.');
     } finally {
@@ -426,36 +452,50 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
             )}
 
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {formFields.map(field => (
-                <div key={field.name}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
-                    {field.label.toUpperCase()} {field.required && '*'}
-                  </label>
-                  {field.type === 'select' ? (
-                    <select
-                      value={formData[field.name] !== undefined ? formData[field.name] : ''}
-                      onChange={(e) => handleInputChange(field.name, e.target.value)}
-                      required={field.required}
-                      style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                    >
-                      <option value="">-- Select {field.label} --</option>
-                      {(optionsMap[field.name] || []).map(opt => (
-                        <option key={opt[field.valueKey]} value={opt[field.valueKey]}>
-                          {opt[field.labelKey] || opt.name || opt[field.valueKey]} (ID: {opt[field.valueKey]})
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      type={field.type || 'text'}
-                      value={formData[field.name] !== undefined ? formData[field.name] : ''}
-                      onChange={(e) => handleInputChange(field.name, e.target.value)}
-                      required={field.required}
-                      style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                    />
-                  )}
-                </div>
-              ))}
+              {formFields.map(field => {
+                if (typeof field.hideIf === 'function' && field.hideIf(formData)) {
+                  return null;
+                }
+                const isRequired = typeof field.required === 'function' ? field.required(formData) : field.required;
+                return (
+                  <div key={field.name}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
+                      {field.label.toUpperCase()} {isRequired && '*'}
+                    </label>
+                    {field.type === 'select' ? (
+                      <select
+                        value={formData[field.name] !== undefined ? formData[field.name] : ''}
+                        onChange={(e) => handleInputChange(field.name, e.target.value)}
+                        required={isRequired}
+                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                      >
+                        <option value="">-- Select {field.label} --</option>
+                        {field.options ? (
+                          field.options.map(opt => (
+                            <option key={typeof opt === 'object' ? opt.value : opt} value={typeof opt === 'object' ? opt.value : opt}>
+                              {typeof opt === 'object' ? opt.label : opt}
+                            </option>
+                          ))
+                        ) : (
+                          (optionsMap[field.name] || []).map(opt => (
+                            <option key={opt[field.valueKey]} value={opt[field.valueKey]}>
+                              {opt[field.labelKey] || opt.name || opt[field.valueKey]} (ID: {opt[field.valueKey]})
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    ) : (
+                      <input
+                        type={field.type || 'text'}
+                        value={formData[field.name] !== undefined ? formData[field.name] : ''}
+                        onChange={(e) => handleInputChange(field.name, e.target.value)}
+                        required={isRequired}
+                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem' }}>
                 <button type="button" onClick={() => setIsModalOpen(false)} className="btn btn-secondary">

@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
 import { describe, it, expect, vi } from 'vitest';
 import CrudPage from './CrudPage';
 
@@ -15,7 +16,11 @@ describe('CrudPage Component', () => {
       { key: 'name', label: 'Name' },
     ];
     
-    render(<CrudPage title="Test Departments" endpoint="/test" columns={columns} />);
+    render(
+      <BrowserRouter>
+        <CrudPage title="Test Departments" endpoint="/test" columns={columns} />
+      </BrowserRouter>
+    );
     
     expect(screen.getByText('Test Departments')).toBeInTheDocument();
   });
@@ -26,7 +31,11 @@ describe('CrudPage Component', () => {
       { key: 'name', label: 'Name' },
     ];
     
-    render(<CrudPage title="Test" endpoint="/test" columns={columns} />);
+    render(
+      <BrowserRouter>
+        <CrudPage title="Test" endpoint="/test" columns={columns} />
+      </BrowserRouter>
+    );
     
     expect(screen.getAllByText('ID').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Name').length).toBeGreaterThan(0);
@@ -35,7 +44,11 @@ describe('CrudPage Component', () => {
   
   it('shows loading state initially', () => {
     const columns = [{ key: 'id', label: 'ID' }];
-    render(<CrudPage title="Test" endpoint="/test" columns={columns} />);
+    render(
+      <BrowserRouter>
+        <CrudPage title="Test" endpoint="/test" columns={columns} />
+      </BrowserRouter>
+    );
     
     expect(screen.getByText('Loading...')).toBeInTheDocument();
   });

@@ -32,13 +32,13 @@ describe('Navbar Component Unit Tests', () => {
     const btnLarge = screen.getByText('A+');
 
     fireEvent.click(btnSmall);
-    expect(document.documentElement.style.fontSize).toBe('14px');
+    expect(document.documentElement.style.fontSize).toBe('12px');
 
     fireEvent.click(btnLarge);
-    expect(document.documentElement.style.fontSize).toBe('18px');
+    expect(document.documentElement.style.fontSize).toBe('16px');
 
     fireEvent.click(btnNormal);
-    expect(document.documentElement.style.fontSize).toBe('16px');
+    expect(document.documentElement.style.fontSize).toBe('14px');
   });
 
   it('toggles dark mode theme when theme button is clicked', () => {
@@ -59,6 +59,22 @@ describe('Navbar Component Unit Tests', () => {
 
     fireEvent.change(searchInput, { target: { value: 'Adobe' } });
     expect(screen.getByText('Adobe Creative Cloud')).toBeInTheDocument();
+  });
+
+  it('filters module options when searching for module names', () => {
+    renderNavbar();
+    const searchInput = screen.getByPlaceholderText(/Search Application or People Here/i);
+
+    fireEvent.change(searchInput, { target: { value: 'Assignments' } });
+    expect(screen.getByText('Assignments', { selector: 'span[style*="font-weight: 500"]' })).toBeInTheDocument();
+
+    fireEvent.change(searchInput, { target: { value: 'Licenses' } });
+    const licenseResults = screen.getAllByText('Licenses');
+    expect(licenseResults.length > 0).toBe(true);
+
+    fireEvent.change(searchInput, { target: { value: 'Users' } });
+    const userResults = screen.getAllByText('Users');
+    expect(userResults.length > 0).toBe(true);
   });
 
   it('opens About/Profile popover when Admin badge is clicked', () => {

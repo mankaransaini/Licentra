@@ -3,18 +3,38 @@ import { useNavigate } from 'react-router-dom';
 import { AuthContext } from '../contexts/AuthContext';
 
 const SEARCH_DATA = [
+  // Modules
+  { id: '0.1', title: 'Dashboard', category: 'Module', path: '/dashboard', icon: '�' },
+  { id: '0.2', title: 'Licenses', category: 'Module', path: '/licenses', icon: '🔑' },
+  { id: '0.3', title: 'Assignments', category: 'Module', path: '/assignments', icon: '📋' },
+  { id: '0.4', title: 'Employees', category: 'Module', path: '/employees', icon: '👥' },
+  { id: '0.5', title: 'Software', category: 'Module', path: '/software', icon: '💿' },
+  { id: '0.6', title: 'Vendors', category: 'Module', path: '/vendors', icon: '🏢' },
+  { id: '0.7', title: 'Departments', category: 'Module', path: '/departments', icon: '🏛️' },
+  { id: '0.8', title: 'Roles', category: 'Module', path: '/roles', icon: '🔐' },
+  { id: '0.9', title: 'Users', category: 'Module', path: '/users', icon: '👤' },
+  
+  // Software
   { id: '1', title: 'Microsoft 365 Enterprise', category: 'Software', path: '/software', icon: '💿' },
   { id: '2', title: 'Adobe Creative Cloud', category: 'Software', path: '/software', icon: '💿' },
   { id: '3', title: 'Figma Professional', category: 'Software', path: '/software', icon: '💿' },
   { id: '4', title: 'Salesforce CRM', category: 'Software', path: '/software', icon: '💿' },
   { id: '5', title: 'Slack Business Plus', category: 'Software', path: '/software', icon: '💿' },
+  
+  // Employees
   { id: '6', title: 'Alex Johnson - Senior Lead', category: 'Employees', path: '/employees', icon: '👥' },
   { id: '7', title: 'Sarah Connor - Product Lead', category: 'Employees', path: '/employees', icon: '👥' },
   { id: '8', title: 'David Miller - DevOps', category: 'Employees', path: '/employees', icon: '👥' },
+  
+  // Licenses
   { id: '9', title: 'LIC-8849-MSFT (Expires 2026)', category: 'Licenses', path: '/licenses', icon: '🔑' },
   { id: '10', title: 'LIC-9921-ADBE (Active)', category: 'Licenses', path: '/licenses', icon: '🔑' },
+  
+  // Vendors
   { id: '11', title: 'Microsoft Corporation', category: 'Vendors', path: '/vendors', icon: '🏢' },
   { id: '12', title: 'Adobe Systems Inc', category: 'Vendors', path: '/vendors', icon: '🏢' },
+  
+  // Users
   { id: '13', title: 'admin (Super Administrator)', category: 'Users', path: '/users', icon: '👤' },
   { id: '14', title: 'johndoe (License Manager)', category: 'Users', path: '/users', icon: '👤' },
 ];
@@ -35,11 +55,11 @@ const Navbar = () => {
   useEffect(() => {
     const html = document.documentElement;
     if (fontSize === 'small') {
-      html.style.fontSize = '14px';
+      html.style.fontSize = '12px';
     } else if (fontSize === 'large') {
-      html.style.fontSize = '18px';
-    } else {
       html.style.fontSize = '16px';
+    } else {
+      html.style.fontSize = '14px';
     }
   }, [fontSize]);
 

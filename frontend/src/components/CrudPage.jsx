@@ -1,15 +1,192 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import anime from 'animejs';
 import api from '../services/api';
 
+// Custom Dropdown Component with right-aligned ID display and search
+const CustomDropdown = ({ value, onChange, options, label, disabled = false, required = false, labelKey, valueKey }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const dropdownRef = useRef(null);
+  const buttonRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const selectedOption = options.find(opt => opt[valueKey] == value);
+  const displayLabel = selectedOption ? (selectedOption[labelKey] || selectedOption.name || selectedOption[valueKey]) : `-- Select ${label} --`;
+  const displayId = selectedOption ? selectedOption[valueKey] : '';
+
+  const filteredOptions = searchTerm.trim() === '' 
+    ? options 
+    : options.filter(opt => {
+        const label = String(opt[labelKey] || opt.name || opt[valueKey]).toLowerCase();
+        const id = String(opt[valueKey]).toLowerCase();
+        const search = searchTerm.toLowerCase();
+        return label.includes(search) || id.includes(search);
+      });
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%' }}>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        disabled={disabled}
+        style={{
+          width: '100%',
+          padding: '0.65rem 0.85rem',
+          borderRadius: '8px',
+          border: '1px solid var(--border-color)',
+          background: disabled ? 'var(--bg-tertiary)' : 'var(--bg-main)',
+          color: 'var(--text-primary)',
+          fontSize: '0.9rem',
+          opacity: disabled ? 0.6 : 1,
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          fontFamily: 'monospace',
+          textAlign: 'left'
+        }}
+      >
+        <span>{displayLabel}</span>
+        <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)' }}>({displayId ? `ID: ${displayId}` : ''})</span>
+      </button>
+
+      {isOpen && !disabled && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 4px)',
+          left: 0,
+          right: 0,
+          width: '100%',
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '8px',
+          zIndex: 1000,
+          maxHeight: '350px',
+          boxShadow: 'var(--shadow-lg)',
+          fontFamily: 'monospace',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
+          {/* Search Input */}
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder={`Search by name or ID...`}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              padding: '0.65rem 0.85rem',
+              borderBottom: '1px solid var(--border-color)',
+              border: 'none',
+              borderRadius: '8px 8px 0 0',
+              background: 'var(--bg-main)',
+              color: 'var(--text-primary)',
+              fontSize: '0.9rem',
+              outline: 'none',
+              flexShrink: 0
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Options List */}
+          <div style={{ overflowY: 'auto', flex: 1, minHeight: '0' }}>
+            <div
+              onClick={() => {
+                onChange('');
+                setIsOpen(false);
+                setSearchTerm('');
+              }}
+              style={{
+                padding: '0.65rem 0.85rem',
+                cursor: 'pointer',
+                background: value === '' ? 'rgba(249, 115, 22, 0.2)' : 'transparent',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                borderBottom: '1px solid var(--border-color)',
+                color: 'var(--text-primary)',
+                fontSize: '0.9rem'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(249, 115, 22, 0.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = value === '' ? 'rgba(249, 115, 22, 0.2)' : 'transparent'}
+            >
+              <span>-- Select {label} --</span>
+            </div>
+            {filteredOptions.length > 0 ? (
+              filteredOptions.map((opt) => (
+                <div
+                  key={opt[valueKey]}
+                  onClick={() => {
+                    onChange(opt[valueKey]);
+                    setIsOpen(false);
+                    setSearchTerm('');
+                  }}
+                  style={{
+                    padding: '0.65rem 0.85rem',
+                    cursor: 'pointer',
+                    background: value == opt[valueKey] ? 'rgba(249, 115, 22, 0.2)' : 'transparent',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    color: 'var(--text-primary)',
+                    fontSize: '0.9rem',
+                    borderBottom: '1px solid rgba(255,255,255,0.05)',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(249, 115, 22, 0.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = value == opt[valueKey] ? 'rgba(249, 115, 22, 0.2)' : 'transparent'}
+                >
+                  <span>{opt[labelKey] || opt.name || opt[valueKey]}</span>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', marginLeft: '1rem', flexShrink: 0 }}>ID: {opt[valueKey]}</span>
+                </div>
+              ))
+            ) : (
+              <div style={{
+                padding: '1rem 0.85rem',
+                textAlign: 'center',
+                color: 'var(--text-secondary)',
+                fontSize: '0.85rem'
+              }}>
+                No results found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config }) => {
+  const location = useLocation();
   const endpoint = config?.endpoint || endpointProp;
-  const columns = config?.columns || columnsProp || [];
+  const predefinedColumns = config?.columns || columnsProp || [];
   const idKey = config?.idKey || 'id';
   const formFields = config?.formFields || [];
   const readOnly = config?.readOnly || false;
 
   const [data, setData] = useState([]);
+  const [displayColumns, setDisplayColumns] = useState(predefinedColumns);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
   
@@ -26,6 +203,24 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
     fetchData();
   }, [endpoint]);
 
+  const generateColumnsFromData = (items) => {
+    if (items.length === 0) return predefinedColumns;
+    
+    // Get all keys from the first item
+    const allKeys = Object.keys(items[0]);
+    
+    // Generate columns from all keys
+    const generatedColumns = allKeys.map(key => ({
+      key,
+      label: key
+        .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+        .replace(/^./, str => str.toUpperCase()) // Capitalize first letter
+        .trim()
+    }));
+    
+    return generatedColumns;
+  };
+
   const fetchData = async () => {
     setLoading(true);
     setErrorMsg('');
@@ -33,6 +228,11 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
       const response = await api.get(endpoint);
       const items = Array.isArray(response.data) ? response.data : (response.data ? [response.data] : []);
       setData(items);
+      
+      // Generate columns from all database fields
+      const cols = generateColumnsFromData(items);
+      setDisplayColumns(cols);
+      
       setLoading(false);
 
       // Stagger animation for rows
@@ -131,7 +331,16 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
   };
 
   const handleInputChange = (fieldName, value) => {
-    setFormData(prev => ({ ...prev, [fieldName]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [fieldName]: value };
+      // Clear any dependent fields when parent field changes
+      formFields.forEach(field => {
+        if (field.dependsOn === fieldName && field.filterKey) {
+          updated[field.name] = '';
+        }
+      });
+      return updated;
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -214,10 +423,10 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
   const [sortOrder, setSortOrder] = useState('asc');
 
   useEffect(() => {
-    setSortKey(idKey || (columns[0]?.key || ''));
+    setSortKey(idKey || (displayColumns[0]?.key || ''));
     setSearchQuery('');
     setSortOrder('asc');
-  }, [idKey, endpoint]);
+  }, [idKey, endpoint, displayColumns]);
 
   const handleHeaderClick = (key) => {
     if (sortKey === key) {
@@ -231,10 +440,34 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
   const processedData = React.useMemo(() => {
     let result = [...data];
 
+    // Apply license filter from query params (for licenses module)
+    const queryParams = new URLSearchParams(location.search);
+    const filter = queryParams.get('filter');
+    
+    if (filter && endpoint === '/license') {
+      const today = new Date();
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(today.getDate() + 30);
+      
+      if (filter === 'expired') {
+        result = result.filter(item => {
+          if (!item.expiryDate) return false;
+          const expDate = new Date(item.expiryDate);
+          return expDate < today;
+        });
+      } else if (filter === 'expiringsoon') {
+        result = result.filter(item => {
+          if (!item.expiryDate) return false;
+          const expDate = new Date(item.expiryDate);
+          return expDate >= today && expDate <= thirtyDaysFromNow;
+        });
+      }
+    }
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       result = result.filter(item =>
-        columns.some(col => {
+        displayColumns.some(col => {
           const val = item[col.key];
           if (val === null || val === undefined) return false;
           return String(val).toLowerCase().includes(q);
@@ -264,7 +497,26 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
     }
 
     return result;
-  }, [data, searchQuery, sortKey, sortOrder, columns]);
+  }, [data, searchQuery, sortKey, sortOrder, displayColumns, endpoint, location]);
+
+  // Get row background color based on license expiry status
+  const getRowBgColor = (item) => {
+    if (endpoint === '/license' && item.expiryDate) {
+      const today = new Date();
+      const expDate = new Date(item.expiryDate);
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(today.getDate() + 30);
+      
+      if (expDate < today) {
+        // Expired - red background
+        return 'rgba(220, 38, 38, 0.15)'; // Light red
+      } else if (expDate <= thirtyDaysFromNow) {
+        // Expiring soon - yellow background
+        return 'rgba(234, 179, 8, 0.15)'; // Light yellow
+      }
+    }
+    return 'transparent';
+  };
 
   return (
     <div className="fade-in">
@@ -340,20 +592,12 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
               fontSize: '0.875rem'
             }}
           >
-            {columns.map(col => (
+            {displayColumns.map(col => (
               <option key={col.key} value={col.key}>
                 {col.label}
               </option>
             ))}
           </select>
-
-          <button
-            onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
-            className="btn btn-secondary"
-            style={{ padding: '0.5rem 0.85rem', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-          >
-            <span>{sortOrder === 'asc' ? '▲ Ascending' : '▼ Descending'}</span>
-          </button>
         </div>
       </div>
 
@@ -361,7 +605,7 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
         <table ref={tableRef}>
           <thead>
             <tr>
-              {columns.map(col => {
+              {displayColumns.map(col => {
                 const isSorted = sortKey === col.key;
                 return (
                   <th
@@ -388,15 +632,16 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={columns.length + (readOnly ? 0 : 1)} style={{ textAlign: 'center', padding: '2rem' }}>Loading...</td></tr>
+              <tr><td colSpan={displayColumns.length + (readOnly ? 0 : 1)} style={{ textAlign: 'center', padding: '2rem' }}>Loading...</td></tr>
             ) : processedData.length === 0 ? (
-              <tr><td colSpan={columns.length + (readOnly ? 0 : 1)} style={{ textAlign: 'center', padding: '2rem' }}>No matching records found.</td></tr>
+              <tr><td colSpan={displayColumns.length + (readOnly ? 0 : 1)} style={{ textAlign: 'center', padding: '2rem' }}>No matching records found.</td></tr>
             ) : (
               processedData.map((item, idx) => {
                 const id = getItemId(item) || idx;
+                const rowBgColor = getRowBgColor(item);
                 return (
-                  <tr key={id} id={`row-${id}`} className="table-row" style={{ opacity: 1 }}>
-                    {columns.map(col => (
+                  <tr key={id} id={`row-${id}`} className="table-row" style={{ opacity: 1, background: rowBgColor }}>
+                    {displayColumns.map(col => (
                       <td key={`${id}-${col.key}`}>
                         {typeof item[col.key] === 'boolean' 
                           ? (item[col.key] ? 'Active' : 'Inactive') 
@@ -440,7 +685,7 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
           justifyContent: 'center',
           zIndex: 1000
         }}>
-          <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '2rem', background: 'var(--bg-surface)' }}>
+          <div className="card" style={{ width: '100%', maxWidth: '500px', padding: '2rem', background: 'var(--bg-surface)', minHeight: '600px', maxHeight: '85vh', overflowY: 'auto' }}>
             <h3 style={{ marginBottom: '1.5rem', fontSize: '1.25rem', fontWeight: 'bold' }}>
               {editingItem ? `Edit ${title.slice(0, -1)}` : `Add New ${title.slice(0, -1)}`}
             </h3>
@@ -457,33 +702,50 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
                   return null;
                 }
                 const isRequired = typeof field.required === 'function' ? field.required(formData) : field.required;
+                const isDependentField = field.dependsOn && field.filterKey;
+                const parentValue = isDependentField ? formData[field.dependsOn] : null;
+                const isDisabled = isDependentField && !parentValue;
+                
+                let filteredOptions = optionsMap[field.name] || [];
+                if (isDependentField && parentValue && optionsMap[field.name]) {
+                  filteredOptions = optionsMap[field.name].filter(opt => 
+                    opt[field.filterKey] == parentValue
+                  );
+                }
+                
                 return (
                   <div key={field.name}>
                     <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
-                      {field.label.toUpperCase()} {isRequired && '*'}
+                      {field.label.toUpperCase()} {isRequired && '*'} {isDependentField && !parentValue && <span style={{color: 'var(--accent-primary)', fontSize: '0.75rem'}}>(Select {formFields.find(f => f.name === field.dependsOn)?.label} first)</span>}
                     </label>
                     {field.type === 'select' ? (
-                      <select
-                        value={formData[field.name] !== undefined ? formData[field.name] : ''}
-                        onChange={(e) => handleInputChange(field.name, e.target.value)}
-                        required={isRequired}
-                        style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '0.9rem' }}
-                      >
-                        <option value="">-- Select {field.label} --</option>
-                        {field.options ? (
-                          field.options.map(opt => (
+                      field.options ? (
+                        <select
+                          value={formData[field.name] !== undefined ? formData[field.name] : ''}
+                          onChange={(e) => handleInputChange(field.name, e.target.value)}
+                          required={isRequired}
+                          disabled={isDisabled}
+                          style={{ width: '100%', padding: '0.65rem 0.85rem', borderRadius: '8px', border: '1px solid var(--border-color)', background: isDisabled ? 'var(--bg-tertiary)' : 'var(--bg-main)', color: 'var(--text-primary)', fontSize: '0.9rem', opacity: isDisabled ? 0.6 : 1, cursor: isDisabled ? 'not-allowed' : 'pointer' }}
+                        >
+                          <option value="">-- Select {field.label} --</option>
+                          {field.options.map(opt => (
                             <option key={typeof opt === 'object' ? opt.value : opt} value={typeof opt === 'object' ? opt.value : opt}>
                               {typeof opt === 'object' ? opt.label : opt}
                             </option>
-                          ))
-                        ) : (
-                          (optionsMap[field.name] || []).map(opt => (
-                            <option key={opt[field.valueKey]} value={opt[field.valueKey]}>
-                              {opt[field.labelKey] || opt.name || opt[field.valueKey]} (ID: {opt[field.valueKey]})
-                            </option>
-                          ))
-                        )}
-                      </select>
+                          ))}
+                        </select>
+                      ) : (
+                        <CustomDropdown
+                          value={formData[field.name] !== undefined ? formData[field.name] : ''}
+                          onChange={(val) => handleInputChange(field.name, val)}
+                          options={filteredOptions}
+                          label={field.label}
+                          disabled={isDisabled}
+                          required={isRequired}
+                          labelKey={field.labelKey}
+                          valueKey={field.valueKey}
+                        />
+                      )
                     ) : (
                       <input
                         type={field.type || 'text'}

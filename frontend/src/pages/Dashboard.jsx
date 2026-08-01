@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import anime from 'animejs';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '../services/api';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [counts, setCounts] = useState({ software: null, licenses: null, assignments: null, auditLogs: null });
   const [deptChartData, setDeptChartData] = useState([]);
   const [usageChartData, setUsageChartData] = useState([]);
@@ -324,21 +325,31 @@ const Dashboard = () => {
             ⚠ Critical System Alerts
           </div>
           <div style={{ padding: '2rem', display: 'flex', gap: '1.5rem' }}>
-            <div style={{ flex: 1, border: '1px solid #fecaca', background: '#fef2f2', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button 
+              onClick={() => navigate('/licenses?filter=expired')} 
+              style={{ flex: 1, border: '1px solid #fecaca', background: '#fef2f2', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', transition: 'all 0.2s', outline: 'none' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#fee2e2'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#fef2f2'}
+            >
               <div style={{ background: 'rgba(220, 38, 38, 0.1)', color: '#dc2626', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🛡️</div>
               <div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626' }}>{expiredCount}</div>
                 <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#dc2626', textTransform: 'uppercase' }}>Expired Licenses</div>
               </div>
-            </div>
+            </button>
             
-            <div style={{ flex: 1, border: '1px solid #fde68a', background: '#fffbeb', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button 
+              onClick={() => navigate('/licenses?filter=expiringsoon')} 
+              style={{ flex: 1, border: '1px solid #fde68a', background: '#fffbeb', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', transition: 'all 0.2s', outline: 'none' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#fef3c7'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#fffbeb'}
+            >
               <div style={{ background: 'rgba(217, 119, 6, 0.1)', color: '#d97706', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⚠</div>
               <div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#d97706' }}>{expiringSoonCount}</div>
                 <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#d97706', textTransform: 'uppercase' }}>Expiring Soon</div>
               </div>
-            </div>
+            </button>
           </div>
         </div>
 

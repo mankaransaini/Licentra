@@ -103,7 +103,8 @@ const entityConfigs = {
       { key: 'assignedByUsername', label: 'Assigned By' }
     ],
     formFields: [
-      { name: 'licenseId', label: 'License Key', type: 'select', endpoint: '/license', valueKey: 'licenseId', labelKey: 'licenseKey', required: true },
+      { name: 'softwareId', label: 'Software', type: 'select', endpoint: '/software', valueKey: 'softwareId', labelKey: 'softwareName', required: true },
+      { name: 'licenseId', label: 'License Key', type: 'select', endpoint: '/license', valueKey: 'licenseId', labelKey: 'licenseKey', required: true, dependsOn: 'softwareId', filterKey: 'softwareId' },
       { name: 'employeeId', label: 'Employee', type: 'select', endpoint: '/employees', valueKey: 'employeeId', labelKey: 'fullName', required: true }
     ]
   },

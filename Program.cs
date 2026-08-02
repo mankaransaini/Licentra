@@ -79,11 +79,14 @@ namespace Licentra.API
         };
     });
 
+            var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                ?? new[] { "http://localhost:5173", "http://localhost:3000", "http://localhost:5174", "http://localhost:5000" };
+
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowFrontend", policy =>
                 {
-                    policy.WithOrigins("http://localhost:5173", "http://localhost:3000", "http://localhost:5174", "http://localhost:5000")
+                    policy.WithOrigins(corsOrigins)
                           .AllowAnyHeader()
                           .AllowAnyMethod()
                           .AllowCredentials();
@@ -215,10 +218,16 @@ namespace Licentra.API
             }
 
             // Configure the HTTP request pipeline.
-            
+           
                 app.UseSwagger();
                 app.UseSwaggerUI();
             
+            // Configure the HTTP request pipeline.
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI();
+            }
 
                 app.UseHttpsRedirection();
 
@@ -230,9 +239,11 @@ namespace Licentra.API
 
                 app.UseAuthorization();
 
-                app.MapGet("/", () => Results.Redirect("/swagger"));
+                app.UseDefaultFiles();
+                app.UseStaticFiles();
 
                 app.MapControllers();
+                app.MapFallbackToFile("index.html");
 
                 app.Run();
         }

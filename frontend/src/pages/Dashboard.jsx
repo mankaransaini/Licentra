@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import anime from 'animejs';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '../services/api';
+import { AuthContext } from '../contexts/AuthContext';
 
 const Dashboard = () => {
+  const { user } = useContext(AuthContext);
+  const isAdmin = user?.role?.toLowerCase().includes('admin') || user?.username?.toLowerCase() === 'admin';
+  const navigate = useNavigate();
   const [counts, setCounts] = useState({ software: null, licenses: null, assignments: null, auditLogs: null });
   const [deptChartData, setDeptChartData] = useState([]);
   const [usageChartData, setUsageChartData] = useState([]);
@@ -141,21 +145,27 @@ const Dashboard = () => {
   const totalAsg = counts.assignments ?? 0;
   const seatPercent = totalLic > 0 ? Math.round((totalAsg / totalLic) * 100) : 0;
 
-  const topStats = [
+  let topStats = [
     { title: 'SOFTWARE CATALOG', value: counts.software !== null ? String(counts.software) : '0', subtitle: 'Applications', icon: '💿', color: '#eef2ff', iconColor: '#6366f1', path: '/software', animClass: 'icon-spin' },
     { title: 'TOTAL LICENSES', value: counts.licenses !== null ? String(counts.licenses) : '0', subtitle: 'Registered Keys', icon: '🔑', color: '#f0fdf4', iconColor: '#16a34a', path: '/licenses', animClass: 'icon-wiggle' },
-    { title: 'SEAT ALLOCATION', value: `${seatPercent}%`, subtitle: `(${totalAsg}/${totalLic})`, icon: '📁', color: '#fff7ed', iconColor: '#ea580c', path: '/assignments', animClass: 'icon-bounce' },
-    { title: 'COMPLIANCE RISKS', value: String(expiredCount), subtitle: 'Alert Flags', icon: '🛡️', color: expiredCount > 0 ? '#fef2f2' : '#f0fdf4', iconColor: expiredCount > 0 ? '#dc2626' : '#16a34a', path: '/auditlogs', animClass: 'icon-pulse' }
+    { title: 'SEAT ALLOCATION', value: `${seatPercent}%`, subtitle: `(${totalAsg}/${totalLic})`, icon: '📁', color: '#fff7ed', iconColor: '#ea580c', path: '/assignments', animClass: 'icon-bounce' }
   ];
 
-  const trendingModules = [
+  if (isAdmin) {
+    topStats.push({ title: 'COMPLIANCE RISKS', value: String(expiredCount), subtitle: 'Alert Flags', icon: '🛡️', color: expiredCount > 0 ? '#fef2f2' : '#f0fdf4', iconColor: expiredCount > 0 ? '#dc2626' : '#16a34a', path: '/auditlogs', animClass: 'icon-pulse' });
+  }
+
+  let trendingModules = [
     { name: 'Licenses', icon: '🔑', iconBg: '#f0fdf4', iconColor: '#16a34a', path: '/licenses', animClass: 'icon-wiggle' },
     { name: 'Assignments', icon: '📝', iconBg: '#fff7ed', iconColor: '#ea580c', path: '/assignments', animClass: 'icon-write' },
     { name: 'Employees', icon: '👥', iconBg: '#f0fdfa', iconColor: '#0d9488', path: '/employees', animClass: 'icon-float' },
     { name: 'Software', icon: '💿', iconBg: '#eef2ff', iconColor: '#6366f1', path: '/software', animClass: 'icon-spin' },
-    { name: 'Vendors', icon: '🏢', iconBg: '#faf5ff', iconColor: '#9333ea', path: '/vendors', animClass: 'icon-bounce' },
-    { name: 'Audit Logs', icon: '⏱️', iconBg: '#eff6ff', iconColor: '#2563eb', path: '/auditlogs', animClass: 'icon-tick' }
+    { name: 'Vendors', icon: '🏢', iconBg: '#faf5ff', iconColor: '#9333ea', path: '/vendors', animClass: 'icon-bounce' }
   ];
+
+  if (isAdmin) {
+    trendingModules.push({ name: 'Audit Logs', icon: '⏱️', iconBg: '#eff6ff', iconColor: '#2563eb', path: '/auditlogs', animClass: 'icon-tick' });
+  }
 
   return (
     <div className="fade-in" style={{ paddingBottom: '3rem' }}>
@@ -324,21 +334,31 @@ const Dashboard = () => {
             ⚠ Critical System Alerts
           </div>
           <div style={{ padding: '2rem', display: 'flex', gap: '1.5rem' }}>
-            <div style={{ flex: 1, border: '1px solid #fecaca', background: '#fef2f2', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button 
+              onClick={() => navigate('/licenses?filter=expired')} 
+              style={{ flex: 1, border: '1px solid #fecaca', background: '#fef2f2', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', transition: 'all 0.2s', outline: 'none' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#fee2e2'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#fef2f2'}
+            >
               <div style={{ background: 'rgba(220, 38, 38, 0.1)', color: '#dc2626', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🛡️</div>
               <div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626' }}>{expiredCount}</div>
                 <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#dc2626', textTransform: 'uppercase' }}>Expired Licenses</div>
               </div>
-            </div>
+            </button>
             
-            <div style={{ flex: 1, border: '1px solid #fde68a', background: '#fffbeb', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <button 
+              onClick={() => navigate('/licenses?filter=expiringsoon')} 
+              style={{ flex: 1, border: '1px solid #fde68a', background: '#fffbeb', borderRadius: '8px', padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', transition: 'all 0.2s', outline: 'none' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = '#fef3c7'}
+              onMouseLeave={(e) => e.currentTarget.style.background = '#fffbeb'}
+            >
               <div style={{ background: 'rgba(217, 119, 6, 0.1)', color: '#d97706', width: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>⚠</div>
               <div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#d97706' }}>{expiringSoonCount}</div>
                 <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#d97706', textTransform: 'uppercase' }}>Expiring Soon</div>
               </div>
-            </div>
+            </button>
           </div>
         </div>
 

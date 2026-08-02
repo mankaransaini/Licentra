@@ -7,12 +7,17 @@ import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import CrudPage from './components/CrudPage';
 
-const ProtectedRoute = ({ children }) => {
+const ProtectedRoute = ({ children, requiredRole }) => {
   const { user, loading } = useContext(AuthContext);
   
   if (loading) return <div style={{ padding: '2rem' }}>Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
   
+  const isAdmin = (requiredRole && user.role?.toLowerCase().includes(requiredRole.toLowerCase())) || user.username?.toLowerCase() === 'admin';
+  if (requiredRole && !isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
   return children;
 };
 
@@ -103,8 +108,10 @@ const entityConfigs = {
       { key: 'assignedByUsername', label: 'Assigned By' }
     ],
     formFields: [
-      { name: 'licenseId', label: 'License Key', type: 'select', endpoint: '/license', valueKey: 'licenseId', labelKey: 'licenseKey', required: true },
-      { name: 'employeeId', label: 'Employee', type: 'select', endpoint: '/employees', valueKey: 'employeeId', labelKey: 'fullName', required: true }
+      { name: 'softwareId', label: 'Software', type: 'select', endpoint: '/software', valueKey: 'softwareId', labelKey: 'softwareName', required: true },
+      { name: 'licenseId', label: 'License Key', type: 'select', endpoint: '/license', valueKey: 'licenseId', labelKey: 'licenseKey', required: true, dependsOn: 'softwareId', filterKey: 'softwareId' },
+      { name: 'employeeId', label: 'Employee', type: 'select', endpoint: '/employees', valueKey: 'employeeId', labelKey: 'fullName', required: true },
+      { name: 'remarks', label: 'Remarks', required: false }
     ]
   },
   roles: {
@@ -210,7 +217,7 @@ function App() {
             <Route path="/software" element={<ProtectedRoute><CrudPage title="Software" config={entityConfigs.software} /></ProtectedRoute>} />
             <Route path="/users" element={<ProtectedRoute><CrudPage title="Users" config={entityConfigs.users} /></ProtectedRoute>} />
             <Route path="/vendors" element={<ProtectedRoute><CrudPage title="Vendors" config={entityConfigs.vendors} /></ProtectedRoute>} />
-            <Route path="/auditlogs" element={<ProtectedRoute><CrudPage title="Audit Logs" config={entityConfigs.auditlogs} /></ProtectedRoute>} />
+            <Route path="/auditlogs" element={<ProtectedRoute requiredRole="admin"><CrudPage title="Audit Logs" config={entityConfigs.auditlogs} /></ProtectedRoute>} />
             
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

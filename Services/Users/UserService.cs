@@ -1,4 +1,4 @@
-﻿using Licentra.API.DTOs.Users;
+using Licentra.API.DTOs.Users;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.Users;
@@ -150,6 +150,11 @@ namespace Licentra.API.Services.Users
             user.Username = dto.Username.Trim();
             user.Email = dto.Email.Trim();
             user.IsActive = dto.IsActive;
+
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                user.PasswordHash = _passwordHasher.HashPassword(dto.Password);
+            }
 
             await _userRepository.UpdateAsync(user);
             await _userRepository.SaveChangesAsync();

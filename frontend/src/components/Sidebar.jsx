@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { NavLink } from 'react-router-dom';
+import { AuthContext } from '../contexts/AuthContext';
 
 const Sidebar = () => {
+  const { user } = useContext(AuthContext);
+  const isAdmin = user?.role?.toLowerCase().includes('admin') || user?.username?.toLowerCase() === 'admin';
+
   const navItems = [
-    { name: 'Dashboard', path: '/', icon: '⊞' },
+    { name: 'Dashboard', path: '/', icon: '📈' },
     { name: 'Licenses', path: '/licenses', icon: '🔑' },
     { name: 'Assignments', path: '/assignments', icon: '📝' },
     { name: 'Employees', path: '/employees', icon: '👥' },
@@ -12,8 +16,11 @@ const Sidebar = () => {
     { name: 'Departments', path: '/departments', icon: '🏛️' },
     { name: 'Roles', path: '/roles', icon: '🛡️' },
     { name: 'Users', path: '/users', icon: '👤' },
-    { name: 'Audit Logs', path: '/auditlogs', icon: '⏱️' },
   ];
+
+  if (isAdmin) {
+    navItems.push({ name: 'Audit Logs', path: '/auditlogs', icon: '⏱️' });
+  }
 
   return (
     <div className="sidebar">

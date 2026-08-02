@@ -1,10 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useContext } from 'react';
 import anime from 'animejs';
 import { Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import api from '../services/api';
+import { AuthContext } from '../contexts/AuthContext';
 
 const Dashboard = () => {
+  const { user } = useContext(AuthContext);
+  const isAdmin = user?.role?.toLowerCase().includes('admin') || user?.username?.toLowerCase() === 'admin';
   const navigate = useNavigate();
   const [counts, setCounts] = useState({ software: null, licenses: null, assignments: null, auditLogs: null });
   const [deptChartData, setDeptChartData] = useState([]);
@@ -142,21 +145,27 @@ const Dashboard = () => {
   const totalAsg = counts.assignments ?? 0;
   const seatPercent = totalLic > 0 ? Math.round((totalAsg / totalLic) * 100) : 0;
 
-  const topStats = [
+  let topStats = [
     { title: 'SOFTWARE CATALOG', value: counts.software !== null ? String(counts.software) : '0', subtitle: 'Applications', icon: '💿', color: '#eef2ff', iconColor: '#6366f1', path: '/software', animClass: 'icon-spin' },
     { title: 'TOTAL LICENSES', value: counts.licenses !== null ? String(counts.licenses) : '0', subtitle: 'Registered Keys', icon: '🔑', color: '#f0fdf4', iconColor: '#16a34a', path: '/licenses', animClass: 'icon-wiggle' },
-    { title: 'SEAT ALLOCATION', value: `${seatPercent}%`, subtitle: `(${totalAsg}/${totalLic})`, icon: '📁', color: '#fff7ed', iconColor: '#ea580c', path: '/assignments', animClass: 'icon-bounce' },
-    { title: 'COMPLIANCE RISKS', value: String(expiredCount), subtitle: 'Alert Flags', icon: '🛡️', color: expiredCount > 0 ? '#fef2f2' : '#f0fdf4', iconColor: expiredCount > 0 ? '#dc2626' : '#16a34a', path: '/auditlogs', animClass: 'icon-pulse' }
+    { title: 'SEAT ALLOCATION', value: `${seatPercent}%`, subtitle: `(${totalAsg}/${totalLic})`, icon: '📁', color: '#fff7ed', iconColor: '#ea580c', path: '/assignments', animClass: 'icon-bounce' }
   ];
 
-  const trendingModules = [
+  if (isAdmin) {
+    topStats.push({ title: 'COMPLIANCE RISKS', value: String(expiredCount), subtitle: 'Alert Flags', icon: '🛡️', color: expiredCount > 0 ? '#fef2f2' : '#f0fdf4', iconColor: expiredCount > 0 ? '#dc2626' : '#16a34a', path: '/auditlogs', animClass: 'icon-pulse' });
+  }
+
+  let trendingModules = [
     { name: 'Licenses', icon: '🔑', iconBg: '#f0fdf4', iconColor: '#16a34a', path: '/licenses', animClass: 'icon-wiggle' },
     { name: 'Assignments', icon: '📝', iconBg: '#fff7ed', iconColor: '#ea580c', path: '/assignments', animClass: 'icon-write' },
     { name: 'Employees', icon: '👥', iconBg: '#f0fdfa', iconColor: '#0d9488', path: '/employees', animClass: 'icon-float' },
     { name: 'Software', icon: '💿', iconBg: '#eef2ff', iconColor: '#6366f1', path: '/software', animClass: 'icon-spin' },
-    { name: 'Vendors', icon: '🏢', iconBg: '#faf5ff', iconColor: '#9333ea', path: '/vendors', animClass: 'icon-bounce' },
-    { name: 'Audit Logs', icon: '⏱️', iconBg: '#eff6ff', iconColor: '#2563eb', path: '/auditlogs', animClass: 'icon-tick' }
+    { name: 'Vendors', icon: '🏢', iconBg: '#faf5ff', iconColor: '#9333ea', path: '/vendors', animClass: 'icon-bounce' }
   ];
+
+  if (isAdmin) {
+    trendingModules.push({ name: 'Audit Logs', icon: '⏱️', iconBg: '#eff6ff', iconColor: '#2563eb', path: '/auditlogs', animClass: 'icon-tick' });
+  }
 
   return (
     <div className="fade-in" style={{ paddingBottom: '3rem' }}>

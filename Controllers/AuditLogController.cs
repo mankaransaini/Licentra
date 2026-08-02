@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Licentra.API.Controllers
 {
-    [Authorize]
+    [Authorize(Roles = "Administrator,Admin")]
     [Route("api/[controller]")]
     [ApiController]
     public class AuditLogController : ControllerBase

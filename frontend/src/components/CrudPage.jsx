@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { useLocation } from 'react-router-dom';
 import anime from 'animejs';
 import api from '../services/api';
+import { AuthContext } from '../contexts/AuthContext';
 
 // Custom Dropdown Component with right-aligned ID display and search
 const CustomDropdown = ({ value, onChange, options, label, disabled = false, required = false, labelKey, valueKey }) => {
@@ -178,6 +179,9 @@ const CustomDropdown = ({ value, onChange, options, label, disabled = false, req
 };
 
 const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config }) => {
+  const { user } = useContext(AuthContext);
+  const isAdmin = user?.role?.toLowerCase().includes('admin') || user?.username?.toLowerCase() === 'admin';
+  
   const location = useLocation();
   const endpoint = config?.endpoint || endpointProp;
   const predefinedColumns = config?.columns || columnsProp || [];
@@ -210,7 +214,7 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
     const allKeys = Object.keys(items[0]);
     
     // Generate columns from all keys
-    const generatedColumns = allKeys.map(key => ({
+    let generatedColumns = allKeys.map(key => ({
       key,
       label: key
         .replace(/([A-Z])/g, ' $1') // Add space before capital letters
@@ -218,6 +222,13 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
         .trim()
     }));
     
+    if (!isAdmin) {
+      generatedColumns = generatedColumns.filter(col => {
+        const lowerKey = col.key.toLowerCase();
+        return !lowerKey.includes('assignedby') && !lowerKey.includes('createdat');
+      });
+    }
+
     return generatedColumns;
   };
 
@@ -645,6 +656,9 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
                       <td key={`${id}-${col.key}`}>
                         {typeof item[col.key] === 'boolean' 
                           ? (item[col.key] ? 'Active' : 'Inactive') 
+                          : (String(col.key).toLowerCase().includes('status') && item[col.key] === 1) ? 'Active'
+                          : (String(col.key).toLowerCase().includes('status') && (item[col.key] === 0 || item[col.key] === 2)) ? 'Inactive'
+                          : (String(col.key).toLowerCase().includes('status') && item[col.key] === 3) ? 'Pending'
                           : item[col.key] ?? '-'}
                       </td>
                     ))}

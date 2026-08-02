@@ -32,7 +32,15 @@
     <Folder Include="Helpers\" />
     <Folder Include="Models\" />
     <Folder Include="Mappings\" />
-    <Folder Include="Services\NewFolder\" />
   </ItemGroup>
+
+  <Target Name="PublishFrontend" AfterTargets="ComputeFilesToPublish">
+    <Exec WorkingDirectory="frontend" Command="npm install" />
+    <Exec WorkingDirectory="frontend" Command="npm run build" />
+    <ItemGroup>
+      <DistFiles Include="frontend\dist\**\*.*" />
+      <ResolvedFileToPublish Include="@(DistFiles)" RelativePath="wwwroot\%(RecursiveDir)%(FileName)%(Extension)" />
+    </ItemGroup>
+  </Target>
 
 </Project>

@@ -9,8 +9,8 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
+    const token = sessionStorage.getItem('token');
+    const storedUser = sessionStorage.getItem('user');
     if (token) {
       let userData = { token };
       if (storedUser) {
@@ -32,9 +32,14 @@ export const AuthProvider = ({ children }) => {
       const authData = response.data; // Unwrapped by api response interceptor
 
       if (authData && authData.token) {
-        localStorage.setItem('token', authData.token);
-        const userInfo = { username: authData.username || username, role: authData.role };
-        localStorage.setItem('user', JSON.stringify(userInfo));
+        sessionStorage.setItem('token', authData.token);
+        const userInfo = { 
+          username: authData.username || username, 
+          role: authData.role,
+          employeeId: authData.employeeId,
+          email: authData.email
+        };
+        sessionStorage.setItem('user', JSON.stringify(userInfo));
         setUser({ token: authData.token, ...userInfo });
         return true;
       } else {
@@ -49,8 +54,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     setUser(null);
   };
 

@@ -2,6 +2,7 @@ using Licentra.API.Common.Responses;
 using Licentra.API.DTOs.LicenseAssignments;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.LicenseAssignments;
+using Licentra.API.Interfaces.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,10 +14,55 @@ namespace Licentra.API.Controllers
     public class LicenseAssignmentController : ControllerBase
     {
         private readonly ILicenseAssignmentService _licenseAssignmentService;
+        private readonly IUserRepository _userRepository;
 
-        public LicenseAssignmentController(ILicenseAssignmentService licenseAssignmentService)
+        public LicenseAssignmentController(
+            ILicenseAssignmentService licenseAssignmentService,
+            IUserRepository userRepository)
         {
             _licenseAssignmentService = licenseAssignmentService;
+            _userRepository = userRepository;
+        }
+
+        [Authorize]
+        [HttpGet("my-assignments")]
+        public async Task<ActionResult<ApiResponse<IEnumerable<LicenseAssignmentDto>>>> GetMyAssignments()
+        {
+            var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                           ?? User.FindFirst("sub")?.Value
+                           ?? User.FindFirst("UserId")?.Value;
+
+            int employeeId = 0;
+            var empIdClaim = User.FindFirst("employeeId")?.Value ?? User.FindFirst("EmployeeId")?.Value;
+            if (int.TryParse(empIdClaim, out int parsedEmpId) && parsedEmpId > 0)
+            {
+                employeeId = parsedEmpId;
+            }
+            else if (int.TryParse(userIdClaim, out int uid) && uid > 0)
+            {
+                var userObj = await _userRepository.GetByIdAsync(uid);
+                if (userObj != null)
+                {
+                    employeeId = userObj.EmployeeId;
+                }
+            }
+
+            if (employeeId <= 0)
+            {
+                return Ok(new ApiResponse<IEnumerable<LicenseAssignmentDto>>(
+                    true,
+                    "No employee profile linked.",
+                    new List<LicenseAssignmentDto>()
+                ));
+            }
+
+            var assignments = await _licenseAssignmentService.GetByEmployeeIdAsync(employeeId);
+
+            return Ok(new ApiResponse<IEnumerable<LicenseAssignmentDto>>(
+                true,
+                "My assignments retrieved successfully.",
+                assignments
+            ));
         }
 
         [HttpGet]
@@ -27,6 +73,18 @@ namespace Licentra.API.Controllers
             return Ok(new ApiResponse<IEnumerable<LicenseAssignmentDto>>(
                 true,
                 "License assignments retrieved successfully.",
+                assignments
+            ));
+        }
+
+        [HttpGet("employee/{employeeId}")]
+        public async Task<ActionResult<ApiResponse<IEnumerable<LicenseAssignmentDto>>>> GetAssignmentsByEmployeeId(int employeeId)
+        {
+            var assignments = await _licenseAssignmentService.GetByEmployeeIdAsync(employeeId);
+
+            return Ok(new ApiResponse<IEnumerable<LicenseAssignmentDto>>(
+                true,
+                "Employee assignments retrieved successfully.",
                 assignments
             ));
         }

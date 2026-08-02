@@ -39,7 +39,7 @@ const SEARCH_DATA = [
   { id: '14', title: 'johndoe (License Manager)', category: 'Users', path: '/users', icon: '👤' },
 ];
 
-const Navbar = () => {
+const Navbar = ({ isSidebarCollapsed, setIsSidebarCollapsed }) => {
   const { user, logout } = useContext(AuthContext);
   const navigate = useNavigate();
   const [fontSize, setFontSize] = useState('normal');
@@ -106,11 +106,57 @@ const Navbar = () => {
 
   return (
     <div className="top-navbar">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
         <div style={{ fontWeight: 'bold', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <div style={{ background: 'var(--accent-gradient)', width: '30px', height: '30px', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>L</div>
           <span>LICENTRA <span style={{fontSize: '0.6rem', color: 'var(--accent-primary)', verticalAlign: 'middle', marginLeft: '2px'}}>LICENSE HUB</span></span>
         </div>
+        
+        {/* Hamburger Toggle */}
+        <button 
+          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            padding: '0.25rem',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+          title="Toggle Sidebar"
+        >
+          <span style={{
+            width: '24px',
+            height: '2px',
+            background: 'var(--navbar-text)',
+            borderRadius: '2px',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            transformOrigin: 'right center',
+            transform: isSidebarCollapsed ? 'translateY(8px) rotate(-45deg) scaleX(0.5)' : 'translateY(0) rotate(0) scaleX(1)'
+          }} />
+          <span style={{
+            width: '24px',
+            height: '2px',
+            background: 'var(--navbar-text)',
+            borderRadius: '2px',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            opacity: 1
+          }} />
+          <span style={{
+            width: '24px',
+            height: '2px',
+            background: 'var(--navbar-text)',
+            borderRadius: '2px',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            transformOrigin: 'right center',
+            transform: isSidebarCollapsed ? 'translateY(-8px) rotate(45deg) scaleX(0.5)' : 'translateY(0) rotate(0) scaleX(1)'
+          }} />
+        </button>
       </div>
 
       {/* Interactive Search Bar */}
@@ -225,11 +271,11 @@ const Navbar = () => {
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
           >
             <div style={{ textAlign: 'right', lineHeight: '1.2' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>admin</div>
-              <div style={{ fontSize: '0.6rem', color: 'var(--accent-primary)', fontWeight: '700' }}>ADMIN</div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>{user.username || 'User'}</div>
+              <div style={{ fontSize: '0.6rem', color: 'var(--accent-primary)', fontWeight: '700', textTransform: 'uppercase' }}>{user.role || 'User'}</div>
             </div>
             <div style={{ background: 'var(--accent-gradient)', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.8rem', color: 'white', boxShadow: '0 4px 10px rgba(249, 115, 22, 0.3)' }}>
-              AD
+              {user.username ? user.username.substring(0, 2).toUpperCase() : 'U'}
             </div>
           </div>
 
@@ -251,8 +297,15 @@ const Navbar = () => {
             }}>
               {/* Header */}
               <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(249, 115, 22, 0.05)' }}>
-                <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>System Administrator</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>admin@licentra.com</div>
+                <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{user.role || 'User Role'}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  {user.email || 'Missing Email (Please Restart Backend)'}
+                </div>
+                {user.employeeId && (
+                  <div style={{ fontSize: '0.70rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    Emp ID: {user.employeeId}
+                  </div>
+                )}
                 <div style={{ display: 'inline-block', marginTop: '0.5rem', padding: '0.2rem 0.5rem', background: '#dcfce7', color: '#15803d', borderRadius: '20px', fontSize: '0.65rem', fontWeight: 'bold' }}>
                   ● Active Session
                 </div>
@@ -297,38 +350,6 @@ const Navbar = () => {
             </div>
           )}
         </div>
-        
-        {/* Prominent Logout Button */}
-        <button 
-          onClick={logout} 
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.4rem',
-            background: 'rgba(239, 68, 68, 0.15)',
-            color: '#ef4444',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            padding: '0.45rem 0.9rem',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            fontSize: '0.85rem',
-            transition: 'all 0.2s ease',
-            marginLeft: '0.5rem'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.25)';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
-            e.currentTarget.style.transform = 'translateY(0)';
-          }}
-          title="Logout of Licentra"
-        >
-          <span style={{ fontSize: '1rem' }}>🚪</span>
-          <span>Logout</span>
-        </button>
       </div>
     </div>
   );

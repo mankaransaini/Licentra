@@ -50,19 +50,26 @@ namespace Licentra.API.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<EmployeeDto>>> CreateEmployee(CreateEmployeeDto dto)
+        public async Task<IActionResult> CreateEmployee(CreateEmployeeDto dto)
         {
-            var employee = await _employeeService.AddAsync(dto);
+            try
+            {
+                var employee = await _employeeService.AddAsync(dto);
 
-            return CreatedAtAction(
-                nameof(GetEmployeeById),
-                new { id = employee.EmployeeId },
-                new ApiResponse<EmployeeDto>(
+                return Ok(new ApiResponse<EmployeeDto>(
                     true,
                     "Employee created successfully.",
                     employee
-                )
-            );
+                ));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiResponse<object>(
+                    false,
+                    ex.Message,
+                    null
+                ));
+            }
         }
 
         [Authorize]

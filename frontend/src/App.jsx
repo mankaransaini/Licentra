@@ -1,4 +1,4 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AuthContext } from './contexts/AuthContext';
 import Login from './pages/Login';
@@ -7,14 +7,18 @@ import Navbar from './components/Navbar';
 import Dashboard from './pages/Dashboard';
 import CrudPage from './components/CrudPage';
 
-const ProtectedRoute = ({ children, requiredRole }) => {
+const ProtectedRoute = ({ children, requiredRole, allowedRoles }) => {
   const { user, loading } = useContext(AuthContext);
   
   if (loading) return <div style={{ padding: '2rem' }}>Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
   
-  const isAdmin = (requiredRole && user.role?.toLowerCase().includes(requiredRole.toLowerCase())) || user.username?.toLowerCase() === 'admin';
-  if (requiredRole && !isAdmin) {
+  const userRole = user.role?.toLowerCase() || '';
+
+  if (allowedRoles && Array.isArray(allowedRoles)) {
+    const hasRole = allowedRoles.some(r => userRole.includes(r.toLowerCase()));
+    if (!hasRole) return <Navigate to="/" replace />;
+  } else if (requiredRole && !userRole.includes(requiredRole.toLowerCase())) {
     return <Navigate to="/" replace />;
   }
 
@@ -29,11 +33,22 @@ const entityConfigs = {
     columns: [
       { key: 'departmentId', label: 'ID' },
       { key: 'departmentName', label: 'Department Name' },
-      { key: 'description', label: 'Description' }
+      { key: 'description', label: 'Description' },
+      { key: 'isActive', label: 'Is Active' }
     ],
     formFields: [
       { name: 'departmentName', label: 'Department Name', required: true },
-      { name: 'description', label: 'Description' }
+      { name: 'description', label: 'Description' },
+      { 
+        name: 'isActive', 
+        label: 'Is Active', 
+        type: 'select', 
+        options: [
+          { value: true, label: 'Active' },
+          { value: false, label: 'Inactive' }
+        ],
+        defaultValue: true 
+      }
     ]
   },
   employees: {
@@ -52,8 +67,11 @@ const entityConfigs = {
       { name: 'firstName', label: 'First Name', required: true },
       { name: 'lastName', label: 'Last Name', required: true },
       { name: 'email', label: 'Email', type: 'email', required: true },
+      { name: 'phone', label: 'Phone Number', required: false },
       { name: 'departmentId', label: 'Department', type: 'select', endpoint: '/departments', valueKey: 'departmentId', labelKey: 'departmentName', required: true },
-      { name: 'designation', label: 'Designation' }
+      { name: 'designation', label: 'Designation', required: true },
+      { name: 'joiningDate', label: 'Joining Date', type: 'date', required: true, defaultValue: () => new Date().toISOString().split('T')[0] },
+      { name: 'employmentStatus', label: 'Employment Status', type: 'select', options: ['Active', 'Inactive', 'On Leave', 'Terminated'], required: true, defaultValue: 'Active' }
     ]
   },
   licenses: {
@@ -114,6 +132,19 @@ const entityConfigs = {
       { name: 'remarks', label: 'Remarks', required: false }
     ]
   },
+  assigned: {
+    idKey: 'assignmentId',
+    endpoint: '/licenseassignment/my-assignments',
+    readOnly: true,
+    columns: [
+      { key: 'assignmentId', label: 'ID' },
+      { key: 'softwareName', label: 'Software Name' },
+      { key: 'licenseKey', label: 'License Key' },
+      { key: 'assignedDate', label: 'Assigned Date' },
+      { key: 'assignmentStatus', label: 'Status' }
+    ],
+    formFields: []
+  },
   roles: {
     idKey: 'roleId',
     endpoint: '/roles',
@@ -148,18 +179,45 @@ const entityConfigs = {
     idKey: 'userId',
     endpoint: '/users',
     columns: [
-      { key: 'userId', label: 'ID' },
+      { key: 'userId', label: 'User ID' },
+      { key: 'employeeId', label: 'Employee ID' },
+      { key: 'employeeName', label: 'Employee Name' },
+      { key: 'roleId', label: 'Role ID' },
+      { key: 'roleName', label: 'Role Name' },
       { key: 'username', label: 'Username' },
       { key: 'email', label: 'Email' },
-      { key: 'roleName', label: 'Role' },
-      { key: 'employeeName', label: 'Employee' }
+      { key: 'lastLogin', label: 'Last Login' },
+      { key: 'isActive', label: 'Is Active' },
+      { key: 'createdAt', label: 'Created At' }
     ],
     formFields: [
+      {
+        name: 'employeeId',
+        label: 'Employee',
+        type: 'select',
+        endpoint: '/employees',
+        valueKey: 'employeeId',
+        labelKey: 'fullName',
+        required: true,
+        autofill: {
+          email: 'email',
+          username: 'email'
+        }
+      },
       { name: 'username', label: 'Username', required: true },
       { name: 'email', label: 'Email', type: 'email', required: true },
-      { name: 'password', label: 'Password', type: 'password', required: true },
+      { name: 'password', label: 'Password', type: 'password', required: (formData) => !formData.userId },
       { name: 'roleId', label: 'Role', type: 'select', endpoint: '/roles', valueKey: 'roleId', labelKey: 'roleName', required: true },
-      { name: 'employeeId', label: 'Employee', type: 'select', endpoint: '/employees', valueKey: 'employeeId', labelKey: 'fullName', required: true }
+      { 
+        name: 'isActive', 
+        label: 'Status', 
+        type: 'select', 
+        options: [
+          { value: true, label: 'Active' },
+          { value: false, label: 'Inactive' }
+        ],
+        defaultValue: true 
+      }
     ]
   },
   vendors: {
@@ -183,11 +241,13 @@ const entityConfigs = {
     idKey: 'auditLogId',
     endpoint: '/auditlog',
     columns: [
-      { key: 'auditLogId', label: 'ID' },
+      { key: 'auditLogId', label: 'Log ID' },
       { key: 'username', label: 'User' },
       { key: 'action', label: 'Action' },
       { key: 'tableName', label: 'Table' },
-      { key: 'actionDate', label: 'Date' }
+      { key: 'recordId', label: 'Record ID' },
+      { key: 'description', label: 'Details' },
+      { key: 'actionDate', label: 'Date & Time' }
     ],
     readOnly: true
   }
@@ -195,29 +255,31 @@ const entityConfigs = {
 
 function App() {
   const { user } = useContext(AuthContext);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   return (
     <div className="app-container">
-      {user && <Navbar />}
+      {user && <Navbar isSidebarCollapsed={isSidebarCollapsed} setIsSidebarCollapsed={setIsSidebarCollapsed} />}
       
       <div className={user ? "main-layout" : ""}>
-        {user && <Sidebar />}
+        {user && <Sidebar isCollapsed={isSidebarCollapsed} />}
         
-        <div className="content-container" style={{ padding: user ? '2rem' : '0' }}>
+        <div className={`content-container ${isSidebarCollapsed ? 'collapsed' : ''}`} style={{ padding: user ? '2rem' : '0' }}>
           <Routes>
             <Route path="/login" element={!user ? <Login /> : <Navigate to="/" replace />} />
             
             {/* Protected Routes */}
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/departments" element={<ProtectedRoute><CrudPage title="Departments" config={entityConfigs.departments} /></ProtectedRoute>} />
+            <Route path="/departments" element={<ProtectedRoute><CrudPage title="Departments" endpoint="/departments" config={entityConfigs.departments} /></ProtectedRoute>} />
             <Route path="/employees" element={<ProtectedRoute><CrudPage title="Employees" config={entityConfigs.employees} /></ProtectedRoute>} />
-            <Route path="/licenses" element={<ProtectedRoute><CrudPage title="Licenses" config={entityConfigs.licenses} /></ProtectedRoute>} />
-            <Route path="/assignments" element={<ProtectedRoute><CrudPage title="License Assignments" config={entityConfigs.assignments} /></ProtectedRoute>} />
-            <Route path="/roles" element={<ProtectedRoute><CrudPage title="Roles" config={entityConfigs.roles} /></ProtectedRoute>} />
             <Route path="/software" element={<ProtectedRoute><CrudPage title="Software" config={entityConfigs.software} /></ProtectedRoute>} />
-            <Route path="/users" element={<ProtectedRoute><CrudPage title="Users" config={entityConfigs.users} /></ProtectedRoute>} />
-            <Route path="/vendors" element={<ProtectedRoute><CrudPage title="Vendors" config={entityConfigs.vendors} /></ProtectedRoute>} />
-            <Route path="/auditlogs" element={<ProtectedRoute requiredRole="admin"><CrudPage title="Audit Logs" config={entityConfigs.auditlogs} /></ProtectedRoute>} />
+            <Route path="/licenses" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><CrudPage title="Licenses" config={entityConfigs.licenses} /></ProtectedRoute>} />
+            <Route path="/assignments" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><CrudPage title="License Assignments" config={entityConfigs.assignments} /></ProtectedRoute>} />
+            <Route path="/vendors" element={<ProtectedRoute requiredRole="admin"><CrudPage title="Vendors" endpoint="/vendors" config={entityConfigs.vendors} /></ProtectedRoute>} />
+            <Route path="/roles" element={<ProtectedRoute requiredRole="admin"><CrudPage title="Roles" endpoint="/roles" config={entityConfigs.roles} /></ProtectedRoute>} />
+            <Route path="/users" element={<ProtectedRoute requiredRole="admin"><CrudPage title="Users" endpoint="/users" config={entityConfigs.users} /></ProtectedRoute>} />
+            <Route path="/assigned" element={<ProtectedRoute><CrudPage title="My Assigned Software" endpoint="/licenseassignment/my-assignments" config={entityConfigs.assigned} /></ProtectedRoute>} />
+            <Route path="/auditlogs" element={<ProtectedRoute requiredRole="admin"><CrudPage title="Security & Audit Logs" endpoint="/auditlog" config={entityConfigs.auditlogs} /></ProtectedRoute>} />
             
             {/* Catch all */}
             <Route path="*" element={<Navigate to="/" replace />} />

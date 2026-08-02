@@ -6,6 +6,8 @@ namespace Licentra.API.Interfaces.LicenseAssignments
     {
         Task<IEnumerable<LicenseAssignment>> GetAllAsync();
 
+        Task<IEnumerable<LicenseAssignment>> GetByEmployeeIdAsync(int employeeId);
+
         Task<LicenseAssignment?> GetByIdAsync(int assignmentId);
 
         Task AddAsync(LicenseAssignment assignment);

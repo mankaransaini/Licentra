@@ -1,4 +1,4 @@
-﻿using Licentra.API.Data;
+using Licentra.API.Data;
 using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Models;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +18,7 @@ namespace Licentra.API.Repositories.AuditLogs
         {
             return await _context.AuditLogs
                 .Include(a => a.User)
-                .OrderByDescending(a => a.ActionDate)
+                .OrderByDescending(a => a.AuditLogId)
                 .ToListAsync();
         }
 
@@ -56,6 +56,12 @@ namespace Licentra.API.Repositories.AuditLogs
         {
             return await _context.Users
                 .AnyAsync(u => u.UserId == userId);
+        }
+
+        public async Task<int?> GetFirstUserIdAsync()
+        {
+            var user = await _context.Users.FirstOrDefaultAsync();
+            return user?.UserId;
         }
 
         public async Task SaveChangesAsync()

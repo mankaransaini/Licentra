@@ -1,4 +1,4 @@
-﻿using Licentra.API.DTOs.AuditLogs;
+using Licentra.API.DTOs.AuditLogs;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Models;
@@ -30,7 +30,7 @@ namespace Licentra.API.Services.AuditLogs
             {
                 AuditLogId = log.AuditLogId,
                 UserId = log.UserId,
-                Username = log.User.Username,
+                Username = log.User?.Username ?? "Admin",
                 Action = log.Action,
                 TableName = log.TableName,
                 RecordId = log.RecordId,
@@ -50,7 +50,7 @@ namespace Licentra.API.Services.AuditLogs
             {
                 AuditLogId = log.AuditLogId,
                 UserId = log.UserId,
-                Username = log.User.Username,
+                Username = log.User?.Username ?? "Admin",
                 Action = log.Action,
                 TableName = log.TableName,
                 RecordId = log.RecordId,
@@ -60,31 +60,66 @@ namespace Licentra.API.Services.AuditLogs
         }
 
         public async Task LogAsync(
-    string action,
-    string tableName,
-    int recordId,
-    string description)
+            string action,
+            string tableName,
+            int recordId,
+            string description)
         {
-            var userIdClaim = _httpContextAccessor.HttpContext?
-                .User
-                .FindFirst(ClaimTypes.NameIdentifier)?
-                .Value;
-
-            if (!int.TryParse(userIdClaim, out int userId))
-                return;
-
-            var auditLog = new AuditLog
+            try
             {
-                UserId = userId,
-                Action = action,
-                TableName = tableName,
-                RecordId = recordId,
-                Description = description,
-                ActionDate = DateTime.UtcNow
-            };
+                var userClaims = _httpContextAccessor.HttpContext?.User;
+                string? idStr = userClaims?.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                             ?? userClaims?.FindFirst("sub")?.Value
+                             ?? userClaims?.FindFirst("UserId")?.Value;
 
-            await _auditLogRepository.AddAsync(auditLog);
-            await _auditLogRepository.SaveChangesAsync();
+                int userId = 0;
+                if (!string.IsNullOrEmpty(idStr) && int.TryParse(idStr, out int parsedId) && parsedId > 0)
+                {
+                    if (await _auditLogRepository.UserExistsAsync(parsedId))
+                    {
+                        userId = parsedId;
+                    }
+                }
+
+                if (userId <= 0)
+                {
+                    if (await _auditLogRepository.UserExistsAsync(1))
+                    {
+                        userId = 1;
+                    }
+                    else
+                    {
+                        var firstUserId = await _auditLogRepository.GetFirstUserIdAsync();
+                        if (firstUserId.HasValue)
+                        {
+                            userId = firstUserId.Value;
+                        }
+                    }
+                }
+
+                if (userId <= 0)
+                {
+                    return;
+                }
+
+                var auditLog = new AuditLog
+                {
+                    UserId = userId,
+                    Action = action,
+                    TableName = tableName,
+                    RecordId = recordId,
+                    Description = description,
+                    ActionDate = DateTime.UtcNow
+                };
+
+                await _auditLogRepository.AddAsync(auditLog);
+                await _auditLogRepository.SaveChangesAsync();
+                Console.WriteLine($"[AUDIT LOG SUCCESS] Logged {action} on {tableName} #{recordId} for User #{userId}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AUDIT LOG ERROR] Failed to record audit log: {ex}");
+            }
         }
     }
 }

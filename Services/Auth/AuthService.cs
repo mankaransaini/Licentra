@@ -63,7 +63,9 @@ namespace Licentra.API.Services.Auth
                 Token = token,
                 Expiration = DateTime.UtcNow.AddMinutes(60),
                 Username = user.Username,
-                Role = user.Role.RoleName
+                Role = user.Role.RoleName,
+                EmployeeId = user.EmployeeId,
+                Email = user.Email
             };
         }
     }

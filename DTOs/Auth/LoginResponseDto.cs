@@ -1,4 +1,4 @@
-﻿namespace Licentra.API.DTOs.Auth
+namespace Licentra.API.DTOs.Auth
 {
     public class LoginResponseDto
     {
@@ -9,5 +9,9 @@
         public string Username { get; set; } = string.Empty;
 
         public string Role { get; set; } = string.Empty;
+
+        public int EmployeeId { get; set; }
+
+        public string Email { get; set; } = string.Empty;
     }
 }

@@ -7,13 +7,16 @@ import { AuthContext } from '../contexts/AuthContext';
 
 const Dashboard = () => {
   const { user } = useContext(AuthContext);
-  const isAdmin = user?.role?.toLowerCase().includes('admin') || user?.username?.toLowerCase() === 'admin';
+  const isAdmin = !!user?.role?.toLowerCase().includes('admin');
   const navigate = useNavigate();
   const [counts, setCounts] = useState({ software: null, licenses: null, assignments: null, auditLogs: null });
   const [deptChartData, setDeptChartData] = useState([]);
   const [usageChartData, setUsageChartData] = useState([]);
   const [expiredCount, setExpiredCount] = useState(0);
   const [expiringSoonCount, setExpiringSoonCount] = useState(0);
+  const [complianceFlagsCount, setComplianceFlagsCount] = useState(0);
+  const [complianceFlagsList, setComplianceFlagsList] = useState([]);
+  const [isFlagsModalOpen, setIsFlagsModalOpen] = useState(false);
 
   useEffect(() => {
     anime({
@@ -111,27 +114,80 @@ const Dashboard = () => {
           total: m.total
         })));
 
-        // 3. Calculate Expiry Alerts
+        // 3. Calculate Expiry & Compliance Risk Alerts
         const today = new Date();
         const thirtyDays = new Date();
         thirtyDays.setDate(today.getDate() + 30);
 
         let expired = 0;
         let expiringSoon = 0;
+        let overAllocated = 0;
+        const flagDetails = [];
 
-        licList.forEach(l => {
+        // If employee, only filter licenses assigned to this employee
+        let targetLicenses = licList;
+        if (!isAdmin && user?.employeeId) {
+          const employeeLicenseIds = asgList
+            .filter(a => a.employeeId === user.employeeId)
+            .map(a => a.licenseId);
+          targetLicenses = licList.filter(l => employeeLicenseIds.includes(l.licenseId));
+        } else if (!isAdmin) {
+          targetLicenses = [];
+        }
+
+        targetLicenses.forEach(l => {
+          const sw = swList.find(s => s.softwareId === l.softwareID || s.softwareId === l.softwareId);
+          const swName = sw ? sw.softwareName : (l.softwareName || 'Software Application');
+
           if (l.expiryDate) {
             const exp = new Date(l.expiryDate);
+            const dateStr = l.expiryDate.split('T')[0];
+
             if (exp < today) {
               expired++;
+              flagDetails.push({
+                id: `exp-${l.licenseId}`,
+                category: 'EXPIRED LICENSE',
+                title: `${swName} (ID: ${l.licenseId})`,
+                subtitle: `Key: ${l.licenseKey || 'N/A'}`,
+                detail: `Expired on ${dateStr}`,
+                severity: 'high',
+                icon: '🚨'
+              });
             } else if (exp <= thirtyDays) {
               expiringSoon++;
+              flagDetails.push({
+                id: `exp-soon-${l.licenseId}`,
+                category: 'EXPIRING SOON',
+                title: `${swName} (ID: ${l.licenseId})`,
+                subtitle: `Key: ${l.licenseKey || 'N/A'}`,
+                detail: `Expires on ${dateStr}`,
+                severity: 'medium',
+                icon: '⚠️'
+              });
             }
+          }
+
+          // Check seat over-allocation
+          const activeAssignments = asgList.filter(a => a.licenseId === l.licenseId && !a.returnedDate).length;
+          if (l.seats > 0 && activeAssignments > l.seats) {
+            overAllocated++;
+            flagDetails.push({
+              id: `over-${l.licenseId}`,
+              category: 'OVER-ALLOCATION',
+              title: `${swName} (ID: ${l.licenseId})`,
+              subtitle: `Key: ${l.licenseKey || 'N/A'}`,
+              detail: `Active seats (${activeAssignments}) exceed capacity (${l.seats})`,
+              severity: 'high',
+              icon: '⛔'
+            });
           }
         });
 
         setExpiredCount(expired);
         setExpiringSoonCount(expiringSoon);
+        setComplianceFlagsCount(flagDetails.length);
+        setComplianceFlagsList(flagDetails);
 
       } catch (e) {
         console.error("Could not fetch dashboard live stats", e);
@@ -152,7 +208,16 @@ const Dashboard = () => {
   ];
 
   if (isAdmin) {
-    topStats.push({ title: 'COMPLIANCE RISKS', value: String(expiredCount), subtitle: 'Alert Flags', icon: '🛡️', color: expiredCount > 0 ? '#fef2f2' : '#f0fdf4', iconColor: expiredCount > 0 ? '#dc2626' : '#16a34a', path: '/auditlogs', animClass: 'icon-pulse' });
+    topStats.push({ 
+      title: 'COMPLIANCE RISKS', 
+      value: String(complianceFlagsCount), 
+      subtitle: 'Alert Flags', 
+      icon: '🛡️', 
+      color: complianceFlagsCount > 0 ? '#fef2f2' : '#f0fdf4', 
+      iconColor: complianceFlagsCount > 0 ? '#dc2626' : '#16a34a', 
+      onClick: () => setIsFlagsModalOpen(true), 
+      animClass: 'icon-pulse' 
+    });
   }
 
   let trendingModules = [
@@ -225,20 +290,36 @@ const Dashboard = () => {
 
       {/* Top Stats */}
       <div className="animate-up" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem', marginBottom: '3rem' }}>
-        {topStats.map((stat, i) => (
-          <Link to={stat.path} key={i} className="card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none', color: 'inherit' }}>
-            <div style={{ background: stat.color, color: stat.iconColor, width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-              <span className={`animated-icon ${stat.animClass}`}>{stat.icon}</span>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.title}</div>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
-                <span style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stat.value}</span>
-                <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: '500' }}>{stat.subtitle}</span>
+        {topStats.map((stat, i) => {
+          const CardInner = (
+            <>
+              <div style={{ background: stat.color, color: stat.iconColor, width: '50px', height: '50px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+                <span className={`animated-icon ${stat.animClass}`}>{stat.icon}</span>
               </div>
-            </div>
-          </Link>
-        ))}
+              <div>
+                <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{stat.title}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '2rem', fontWeight: 'bold' }}>{stat.value}</span>
+                  <span style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', fontWeight: '500' }}>{stat.subtitle}</span>
+                </div>
+              </div>
+            </>
+          );
+
+          if (stat.onClick) {
+            return (
+              <div key={i} onClick={stat.onClick} className="card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', color: 'inherit' }}>
+                {CardInner}
+              </div>
+            );
+          }
+
+          return (
+            <Link to={stat.path} key={i} className="card" style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem', textDecoration: 'none', color: 'inherit' }}>
+              {CardInner}
+            </Link>
+          );
+        })}
       </div>
 
       {/* Analytics Charts */}
@@ -385,6 +466,133 @@ const Dashboard = () => {
         </div>
 
       </div>
+
+      {/* Compliance Flags Modal Overlay */}
+      {isFlagsModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(8px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '1.5rem',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '650px',
+            maxHeight: '80vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: 'var(--shadow-lg)',
+            overflow: 'hidden'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '1.25rem 1.5rem',
+              borderBottom: '1px solid var(--border-color)',
+              background: 'rgba(239, 68, 68, 0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🛡️</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                    Compliance Risk Flags
+                  </h3>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    {complianceFlagsList.length} Active System Risk Alerts
+                  </span>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsFlagsModalOpen(false)}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1rem',
+                  color: 'var(--text-primary)',
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+                onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body / Flag Items List */}
+            <div style={{ padding: '1.25rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {complianceFlagsList.length > 0 ? (
+                complianceFlagsList.map((flag) => (
+                  <div 
+                    key={flag.id}
+                    style={{
+                      padding: '1rem 1.25rem',
+                      borderRadius: '12px',
+                      border: '1px solid var(--border-color)',
+                      background: flag.severity === 'high' ? 'rgba(239, 68, 68, 0.04)' : 'rgba(245, 158, 11, 0.04)',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '1rem'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.5rem', marginTop: '2px' }}>{flag.icon}</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                        <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                          {flag.title}
+                        </span>
+                        <span style={{
+                          fontSize: '0.65rem',
+                          fontWeight: '800',
+                          letterSpacing: '0.5px',
+                          padding: '0.2rem 0.5rem',
+                          borderRadius: '6px',
+                          textTransform: 'uppercase',
+                          background: flag.severity === 'high' ? '#fee2e2' : '#fef3c7',
+                          color: flag.severity === 'high' ? '#dc2626' : '#d97706'
+                        }}>
+                          {flag.category}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>
+                        {flag.subtitle}
+                      </div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: '600', color: flag.severity === 'high' ? '#ef4444' : '#f59e0b' }}>
+                        {flag.detail}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  🎉 No compliance risks detected! All licenses are healthy and compliant.
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

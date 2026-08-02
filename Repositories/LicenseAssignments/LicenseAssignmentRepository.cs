@@ -19,7 +19,20 @@ namespace Licentra.API.Repositories.LicenseAssignments
             return await _context.LicenseAssignments
                 .Include(la => la.Employee)
                 .Include(la => la.License)
+                    .ThenInclude(l => l.Software)
                 .Include(la => la.AssignedByUser)
+                .OrderByDescending(la => la.AssignedDate)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<LicenseAssignment>> GetByEmployeeIdAsync(int employeeId)
+        {
+            return await _context.LicenseAssignments
+                .Include(la => la.Employee)
+                .Include(la => la.License)
+                    .ThenInclude(l => l.Software)
+                .Include(la => la.AssignedByUser)
+                .Where(la => la.EmployeeId == employeeId)
                 .OrderByDescending(la => la.AssignedDate)
                 .ToListAsync();
         }
@@ -29,6 +42,7 @@ namespace Licentra.API.Repositories.LicenseAssignments
             return await _context.LicenseAssignments
                 .Include(la => la.Employee)
                 .Include(la => la.License)
+                    .ThenInclude(l => l.Software)
                 .Include(la => la.AssignedByUser)
                 .FirstOrDefaultAsync(la => la.AssignmentId == assignmentId);
         }

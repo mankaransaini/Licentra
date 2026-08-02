@@ -1,10 +1,12 @@
-﻿namespace Licentra.API.DTOs.LicenseAssignments
+namespace Licentra.API.DTOs.LicenseAssignments
 {
     public class LicenseAssignmentDto
     {
         public int AssignmentId { get; set; }
 
         public int LicenseId { get; set; }
+
+        public string SoftwareName { get; set; } = string.Empty;
 
         public string LicenseKey { get; set; } = string.Empty;
 

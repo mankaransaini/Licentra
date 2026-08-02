@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Licentra.API.Exceptions;
 using Licentra.API.Exceptions.Custom;
 
@@ -61,7 +61,7 @@ namespace Licentra.API.Middleware
 
                 default:
                     context.Response.StatusCode = StatusCodes.Status500InternalServerError;
-                    response.Message = "An unexpected error occurred.";
+                    response.Message = exception.Message;
                     break;
             }
 

@@ -30,14 +30,36 @@ namespace Licentra.API.Services.LicenseAssignments
             {
                 AssignmentId = a.AssignmentId,
                 LicenseId = a.LicenseId,
-                LicenseKey = a.License.LicenseKey,
+                SoftwareName = a.License?.Software?.SoftwareName ?? "N/A",
+                LicenseKey = a.License?.LicenseKey ?? "N/A",
                 EmployeeId = a.EmployeeId,
-                EmployeeName = $"{a.Employee.FirstName} {a.Employee.LastName}",
+                EmployeeName = a.Employee != null ? $"{a.Employee.FirstName} {a.Employee.LastName}" : "N/A",
                 AssignedDate = a.AssignedDate,
                 ReturnedDate = a.ReturnedDate,
                 AssignmentStatus = a.AssignmentStatus,
                 AssignedByUserId = a.AssignedByUserId,
-                AssignedByUsername = a.AssignedByUser.Username,
+                AssignedByUsername = a.AssignedByUser?.Username ?? "System",
+                Remarks = a.Remarks
+            });
+        }
+
+        public async Task<IEnumerable<LicenseAssignmentDto>> GetByEmployeeIdAsync(int employeeId)
+        {
+            var assignments = await _licenseAssignmentRepository.GetByEmployeeIdAsync(employeeId);
+
+            return assignments.Select(a => new LicenseAssignmentDto
+            {
+                AssignmentId = a.AssignmentId,
+                LicenseId = a.LicenseId,
+                SoftwareName = a.License?.Software?.SoftwareName ?? "N/A",
+                LicenseKey = a.License?.LicenseKey ?? "N/A",
+                EmployeeId = a.EmployeeId,
+                EmployeeName = a.Employee != null ? $"{a.Employee.FirstName} {a.Employee.LastName}" : "N/A",
+                AssignedDate = a.AssignedDate,
+                ReturnedDate = a.ReturnedDate,
+                AssignmentStatus = a.AssignmentStatus,
+                AssignedByUserId = a.AssignedByUserId,
+                AssignedByUsername = a.AssignedByUser?.Username ?? "System",
                 Remarks = a.Remarks
             });
         }
@@ -53,6 +75,7 @@ namespace Licentra.API.Services.LicenseAssignments
             {
                 AssignmentId = assignment.AssignmentId,
                 LicenseId = assignment.LicenseId,
+                SoftwareName = assignment.License.Software.SoftwareName,
                 LicenseKey = assignment.License.LicenseKey,
                 EmployeeId = assignment.EmployeeId,
                 EmployeeName = $"{assignment.Employee.FirstName} {assignment.Employee.LastName}",
@@ -112,6 +135,7 @@ namespace Licentra.API.Services.LicenseAssignments
             {
                 AssignmentId = created!.AssignmentId,
                 LicenseId = created.LicenseId,
+                SoftwareName = created.License.Software.SoftwareName,
                 LicenseKey = created.License.LicenseKey,
                 EmployeeId = created.EmployeeId,
                 EmployeeName = $"{created.Employee.FirstName} {created.Employee.LastName}",

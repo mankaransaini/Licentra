@@ -1,10 +1,12 @@
-﻿using Licentra.API.DTOs.LicenseAssignments;
+using Licentra.API.DTOs.LicenseAssignments;
 
 namespace Licentra.API.Interfaces.LicenseAssignments
 {
     public interface ILicenseAssignmentService
     {
         Task<IEnumerable<LicenseAssignmentDto>> GetAllAsync();
+
+        Task<IEnumerable<LicenseAssignmentDto>> GetByEmployeeIdAsync(int employeeId);
 
         Task<LicenseAssignmentDto?> GetByIdAsync(int assignmentId);
 

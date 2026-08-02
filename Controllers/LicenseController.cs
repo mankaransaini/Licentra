@@ -48,18 +48,26 @@ namespace Licentra.API.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<ActionResult<ApiResponse<LicenseDto>>> CreateLicense(CreateLicenseDto dto)
+        public async Task<IActionResult> CreateLicense(CreateLicenseDto dto)
         {
-            var license = await _licenseService.AddAsync(dto);
+            try
+            {
+                var license = await _licenseService.AddAsync(dto);
 
-            return CreatedAtAction(
-                nameof(GetLicenseById),
-                new { id = license.LicenseId },
-                new ApiResponse<LicenseDto>(
+                return Ok(new ApiResponse<LicenseDto>(
                     true,
                     "License created successfully.",
                     license
                 ));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiResponse<object>(
+                    false,
+                    ex.Message,
+                    null
+                ));
+            }
         }
 
         [Authorize]

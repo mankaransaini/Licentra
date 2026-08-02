@@ -178,15 +178,15 @@ namespace Licentra.API.Services.Users
 
             string username = user.Username;
 
-            await _userRepository.DeleteAsync(user);
-            await _userRepository.SaveChangesAsync();
-
             await _auditLogService.LogAsync(
                 "DELETE",
                 "User",
                 user.UserId,
                 $"Deleted user '{username}'"
             );
+
+            await _userRepository.DeleteAsync(user);
+            await _userRepository.SaveChangesAsync();
 
             return true;
         }

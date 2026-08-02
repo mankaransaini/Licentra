@@ -1,4 +1,4 @@
-﻿using Licentra.API.DTOs.Employees;
+using Licentra.API.DTOs.Employees;
 using Licentra.API.Exceptions.Custom;
 using Licentra.API.Interfaces.AuditLogs;
 using Licentra.API.Interfaces.Employees;
@@ -86,15 +86,15 @@ namespace Licentra.API.Services.Employees
 
             var employee = new Employee
             {
-                EmployeeCode = dto.EmployeeCode.Trim(),
-                FirstName = dto.FirstName.Trim(),
-                LastName = dto.LastName.Trim(),
-                Email = dto.Email.Trim(),
+                EmployeeCode = (dto.EmployeeCode ?? string.Empty).Trim(),
+                FirstName = (dto.FirstName ?? string.Empty).Trim(),
+                LastName = (dto.LastName ?? string.Empty).Trim(),
+                Email = (dto.Email ?? string.Empty).Trim(),
                 Phone = dto.Phone?.Trim(),
                 DepartmentId = dto.DepartmentId,
-                Designation = dto.Designation.Trim(),
-                JoiningDate = dto.JoiningDate,
-                EmploymentStatus = dto.EmploymentStatus,
+                Designation = (dto.Designation ?? string.Empty).Trim(),
+                JoiningDate = dto.JoiningDate == default ? DateOnly.FromDateTime(DateTime.Today) : dto.JoiningDate,
+                EmploymentStatus = string.IsNullOrWhiteSpace(dto.EmploymentStatus) ? "Active" : dto.EmploymentStatus.Trim(),
                 IsActive = true
             };
 

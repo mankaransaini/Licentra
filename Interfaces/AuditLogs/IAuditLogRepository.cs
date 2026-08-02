@@ -1,4 +1,4 @@
-﻿using Licentra.API.Models;
+using Licentra.API.Models;
 
 namespace Licentra.API.Interfaces.AuditLogs
 {
@@ -17,6 +17,8 @@ namespace Licentra.API.Interfaces.AuditLogs
         Task<bool> ExistsAsync(int auditLogId);
 
         Task<bool> UserExistsAsync(int userId);
+
+        Task<int?> GetFirstUserIdAsync();
 
         Task SaveChangesAsync();
     }

@@ -180,7 +180,9 @@ const CustomDropdown = ({ value, onChange, options, label, disabled = false, req
 
 const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config }) => {
   const { user } = useContext(AuthContext);
-  const isAdmin = user?.role?.toLowerCase().includes('admin') || user?.username?.toLowerCase() === 'admin';
+  const userRole = user?.role?.toLowerCase() || '';
+  const isAdmin = userRole.includes('admin');
+  const isManager = userRole.includes('manager');
   
   const location = useLocation();
   const endpoint = config?.endpoint || endpointProp;
@@ -205,9 +207,12 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
 
   useEffect(() => {
     fetchData();
-  }, [endpoint]);
+  }, [endpoint, location.pathname, config]);
 
   const generateColumnsFromData = (items) => {
+    if (predefinedColumns && predefinedColumns.length > 0) {
+      return predefinedColumns;
+    }
     if (items.length === 0) return predefinedColumns;
     
     // Get all keys from the first item
@@ -222,9 +227,29 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
         .trim()
     }));
     
-    if (!isAdmin) {
+    if (!isAdmin && !isManager) {
       generatedColumns = generatedColumns.filter(col => {
         const lowerKey = col.key.toLowerCase();
+        
+        // Hide sensitive license columns from non-admins
+        if (endpoint === '/license') {
+          const hiddenLicenseKeys = [
+            'licensekey', 'licensetype', 'purchasedate', 
+            'expirydate', 'purchasecost', 'seats', 'licensestatus'
+          ];
+          if (hiddenLicenseKeys.includes(lowerKey)) {
+            return false;
+          }
+        }
+
+        // Hide vendorId, isSubscription, isActive from software table for non-admins
+        if (endpoint === '/software') {
+          const hiddenSoftwareKeys = ['vendorid', 'issubscription', 'isactive'];
+          if (hiddenSoftwareKeys.includes(lowerKey)) {
+            return false;
+          }
+        }
+
         return !lowerKey.includes('assignedby') && !lowerKey.includes('createdat');
       });
     }
@@ -236,8 +261,13 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
     setLoading(true);
     setErrorMsg('');
     try {
-      const response = await api.get(endpoint);
-      const items = Array.isArray(response.data) ? response.data : (response.data ? [response.data] : []);
+      let targetEndpoint = endpoint;
+      if (location.pathname === '/assigned') {
+        targetEndpoint = '/licenseassignment/my-assignments';
+      }
+      const response = await api.get(targetEndpoint);
+      const resPayload = (response.data && response.data.data !== undefined) ? response.data.data : response.data;
+      const items = Array.isArray(resPayload) ? resPayload : (resPayload ? [resPayload] : []);
       setData(items);
       
       // Generate columns from all database fields
@@ -261,6 +291,7 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
       console.error(`Error fetching data for ${endpoint}:`, error);
       setErrorMsg('Failed to load data from backend server.');
       setData([]);
+      setDisplayColumns(predefinedColumns);
       setLoading(false);
     }
   };
@@ -342,8 +373,41 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
   };
 
   const handleInputChange = (fieldName, value) => {
+    let parsedVal = value;
+    if (value === 'true') parsedVal = true;
+    if (value === 'false') parsedVal = false;
+
     setFormData(prev => {
-      const updated = { ...prev, [fieldName]: value };
+      const updated = { ...prev, [fieldName]: parsedVal };
+
+      try {
+        const currentField = formFields.find(f => f.name === fieldName);
+        const opts = optionsMap[fieldName] || (typeof selectOptions !== 'undefined' ? selectOptions[fieldName] : null);
+        if (currentField && currentField.autofill && opts) {
+          const selectedOpt = opts.find(opt => String(opt[currentField.valueKey || 'id']) === String(value));
+          if (selectedOpt) {
+            Object.keys(currentField.autofill).forEach(targetKey => {
+              const rule = currentField.autofill[targetKey];
+              if (typeof rule === 'function') {
+                try {
+                  updated[targetKey] = rule(selectedOpt) || '';
+                } catch (e) {
+                  console.error("Autofill func error:", e);
+                }
+              } else if (selectedOpt[rule] !== undefined && selectedOpt[rule] !== null) {
+                let val = selectedOpt[rule];
+                if (targetKey === 'username' && typeof val === 'string' && val.includes('@')) {
+                  val = val.split('@')[0];
+                }
+                updated[targetKey] = String(val);
+              }
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Autofill error:", err);
+      }
+
       // Clear any dependent fields when parent field changes
       formFields.forEach(field => {
         if (field.dependsOn === fieldName && field.filterKey) {
@@ -408,6 +472,8 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
       let msg = null;
       if (err.response?.data?.message) {
         msg = err.response.data.message;
+      } else if (err.response?.status === 409) {
+        msg = 'Department / Record with this name already exists (409 Conflict).';
       } else if (err.response?.status === 403) {
         msg = 'Access Denied (403 Forbidden): Your user account role does not have Administrator permissions for this operation. Please log in again.';
       } else if (err.response?.status === 401) {
@@ -450,6 +516,13 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
 
   const processedData = React.useMemo(() => {
     let result = [...data];
+
+    // Role-based filtering for employees
+    if (!isAdmin && !isManager) {
+      if (endpoint === '/licenseassignment' || endpoint === '/users') {
+        result = result.filter(item => item.employeeId === user?.employeeId);
+      }
+    }
 
     // Apply license filter from query params (for licenses module)
     const queryParams = new URLSearchParams(location.search);
@@ -529,11 +602,69 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
     return 'transparent';
   };
 
+  const formatDateValue = (val) => {
+    if (!val) return '-';
+    const str = String(val).trim();
+    const isIso = /^\d{4}-\d{2}-\d{2}/.test(str);
+    if (!isIso) return str;
+
+    const d = new Date(str);
+    if (isNaN(d.getTime())) return str;
+
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const formattedDate = `${day}/${month}/${year}`;
+
+    if (str.includes('T') || str.includes(':')) {
+      const hours = String(d.getHours()).padStart(2, '0');
+      const minutes = String(d.getMinutes()).padStart(2, '0');
+      const seconds = String(d.getSeconds()).padStart(2, '0');
+      const formattedTime = `${hours}:${minutes}:${seconds}`;
+      
+      return (
+        <div style={{ lineHeight: '1.3' }}>
+          <div>{formattedDate}</div>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px', fontWeight: '500' }}>
+            {formattedTime}
+          </div>
+        </div>
+      );
+    }
+
+    return formattedDate;
+  };
+
+  const renderCellValue = (item, col) => {
+    const val = item[col.key];
+    const lowerKey = String(col.key).toLowerCase();
+
+    if (val === null || val === undefined || val === '') return '-';
+
+    if (typeof val === 'boolean') {
+      return val ? 'Active' : 'Inactive';
+    }
+
+    if (lowerKey.includes('status')) {
+      if (val === 1) return 'Active';
+      if (val === 0 || val === 2) return 'Inactive';
+      if (val === 3) return 'Pending';
+    }
+
+    if (lowerKey.includes('date') || lowerKey.endsWith('at') || (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}/.test(val))) {
+      return formatDateValue(val);
+    }
+
+    return val;
+  };
+
+  const canModify = !readOnly && (isAdmin || (isManager && endpoint === '/licenseassignment'));
+
   return (
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h2 style={{ fontSize: '1.75rem', fontWeight: 'bold' }}>{title}</h2>
-        {!readOnly && formFields.length > 0 && (
+        {canModify && formFields.length > 0 && (
           <button onClick={openAddModal} className="btn btn-primary">
             + Add New
           </button>
@@ -569,11 +700,11 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
             style={{
               flex: 1,
               padding: '0.5rem 0.85rem',
-              borderRadius: '6px',
+              borderRadius: '8px',
               border: '1px solid var(--border-color)',
               background: 'var(--bg-main)',
               color: 'var(--text-primary)',
-              fontSize: '0.875rem'
+              fontSize: '0.9rem'
             }}
           />
           {searchQuery && (
@@ -587,20 +718,23 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <label style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-            Sort By:
-          </label>
+        {/* Sort Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Sort By:</span>
           <select
             value={sortKey}
-            onChange={(e) => setSortKey(e.target.value)}
+            onChange={(e) => {
+              setSortKey(e.target.value);
+              setSortOrder('asc');
+            }}
             style={{
-              padding: '0.5rem 0.85rem',
-              borderRadius: '6px',
+              padding: '0.4rem 0.75rem',
+              borderRadius: '8px',
               border: '1px solid var(--border-color)',
               background: 'var(--bg-main)',
               color: 'var(--text-primary)',
-              fontSize: '0.875rem'
+              fontSize: '0.85rem',
+              cursor: 'pointer'
             }}
           >
             {displayColumns.map(col => (
@@ -612,76 +746,74 @@ const CrudPage = ({ title, endpoint: endpointProp, columns: columnsProp, config 
         </div>
       </div>
 
-      <div className="table-wrapper glass-panel">
-        <table ref={tableRef}>
-          <thead>
-            <tr>
-              {displayColumns.map(col => {
-                const isSorted = sortKey === col.key;
-                return (
-                  <th
-                    key={col.key}
-                    onClick={() => handleHeaderClick(col.key)}
-                    style={{ cursor: 'pointer', userSelect: 'none' }}
-                    title={`Click to sort by ${col.label}`}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <span>{col.label}</span>
-                      {isSorted ? (
-                        <span style={{ fontSize: '0.75rem', color: 'var(--primary-color)' }}>
-                          {sortOrder === 'asc' ? '▲' : '▼'}
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '0.75rem', opacity: 0.3 }}>⇅</span>
-                      )}
-                    </div>
-                  </th>
-                );
-              })}
-              {!readOnly && <th style={{ width: '150px' }}>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={displayColumns.length + (readOnly ? 0 : 1)} style={{ textAlign: 'center', padding: '2rem' }}>Loading...</td></tr>
-            ) : processedData.length === 0 ? (
-              <tr><td colSpan={displayColumns.length + (readOnly ? 0 : 1)} style={{ textAlign: 'center', padding: '2rem' }}>No matching records found.</td></tr>
-            ) : (
-              processedData.map((item, idx) => {
-                const id = getItemId(item) || idx;
-                const rowBgColor = getRowBgColor(item);
-                return (
-                  <tr key={id} id={`row-${id}`} className="table-row" style={{ opacity: 1, background: rowBgColor }}>
-                    {displayColumns.map(col => (
-                      <td key={`${id}-${col.key}`}>
-                        {typeof item[col.key] === 'boolean' 
-                          ? (item[col.key] ? 'Active' : 'Inactive') 
-                          : (String(col.key).toLowerCase().includes('status') && item[col.key] === 1) ? 'Active'
-                          : (String(col.key).toLowerCase().includes('status') && (item[col.key] === 0 || item[col.key] === 2)) ? 'Inactive'
-                          : (String(col.key).toLowerCase().includes('status') && item[col.key] === 3) ? 'Pending'
-                          : item[col.key] ?? '-'}
-                      </td>
-                    ))}
-                    {!readOnly && (
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          {formFields.length > 0 && (
-                            <button onClick={() => openEditModal(item)} className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}>
-                              Edit
+      {/* Main Data Table */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table ref={tableRef} className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                {displayColumns.map(col => {
+                  const isSorted = sortKey === col.key;
+                  return (
+                    <th
+                      key={col.key}
+                      onClick={() => handleHeaderClick(col.key)}
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                      title={`Click to sort by ${col.label}`}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <span>{col.label}</span>
+                        {isSorted ? (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--primary-color)' }}>
+                            {sortOrder === 'asc' ? '▲' : '▼'}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: '0.75rem', opacity: 0.3 }}>⇅</span>
+                        )}
+                      </div>
+                    </th>
+                  );
+                })}
+                {canModify && <th style={{ width: '150px' }}>Actions</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={displayColumns.length + (canModify ? 1 : 0)} style={{ textAlign: 'center', padding: '2rem' }}>Loading...</td></tr>
+              ) : processedData.length === 0 ? (
+                <tr><td colSpan={displayColumns.length + (canModify ? 1 : 0)} style={{ textAlign: 'center', padding: '2rem' }}>No matching records found.</td></tr>
+              ) : (
+                processedData.map((item, idx) => {
+                  const id = getItemId(item) || idx;
+                  const rowBgColor = getRowBgColor(item);
+                  return (
+                    <tr key={id} id={`row-${id}`} className="table-row" style={{ opacity: 1, background: rowBgColor }}>
+                      {displayColumns.map(col => (
+                        <td key={`${id}-${col.key}`}>
+                          {renderCellValue(item, col)}
+                        </td>
+                      ))}
+                      {canModify && (
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {formFields.length > 0 && (
+                              <button onClick={() => openEditModal(item)} className="btn btn-secondary" style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}>
+                                Edit
+                              </button>
+                            )}
+                            <button onClick={() => handleDelete(item)} className="btn btn-danger" style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}>
+                              Delete
                             </button>
-                          )}
-                          <button onClick={() => handleDelete(item)} className="btn btn-danger" style={{ padding: '0.25rem 0.75rem', fontSize: '0.875rem' }}>
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Add / Edit Modal */}

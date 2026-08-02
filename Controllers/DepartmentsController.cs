@@ -49,17 +49,24 @@ namespace Licentra.API.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<ActionResult<DepartmentDto>> Create(CreateDepartmentDto createDepartmentDto)
+        public async Task<IActionResult> Create(CreateDepartmentDto createDepartmentDto)
         {
-            var department = await _departmentService.AddAsync(createDepartmentDto);
+            try
+            {
+                var department = await _departmentService.AddAsync(createDepartmentDto);
 
-            return CreatedAtAction(
-                nameof(GetById),
-                new { departmentId = department.DepartmentId },
-                new ApiResponse<DepartmentDto>(
+                return Ok(new ApiResponse<DepartmentDto>(
                     true,
                     "Department created successfully.",
                     department));
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new ApiResponse<object>(
+                    false,
+                    ex.Message,
+                    null));
+            }
         }
 
         [Authorize]

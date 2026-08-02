@@ -218,14 +218,16 @@ namespace Licentra.API
             }
 
             // Configure the HTTP request pipeline.
-<<<<<<< HEAD
            
-=======
-            
->>>>>>> 73236ca8c4358d93d66cd1d1c677ed56cb87331a
                 app.UseSwagger();
                 app.UseSwaggerUI();
             
+            // Configure the HTTP request pipeline.
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI();
+            }
 
                 app.UseHttpsRedirection();
 
